@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Arrow Image</title>
+    <title>Merge Shoot RPG - Arrow Image Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -36,12 +36,9 @@
         const ENEMY_START_Y = 120;
         const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40;
 
-        // ==========================================
-        // 1. 画像のロード（hero と arrow）
-        // ==========================================
         function preload() {
             this.load.image('hero', 'hero.png');
-            this.load.image('arrow', 'arrow.png'); // アップロードした矢の画像
+            this.load.image('arrow', 'arrow.png');
         }
 
         function create() {
@@ -142,9 +139,6 @@
             });
         }
 
-        // ==========================================
-        // 2. 矢を飛ばし、画面外（上部）まで貫通させる処理
-        // ==========================================
         function handleAttack(scene, onComplete) {
             const allies = alliedUnits.getChildren();
             const enemies = enemyUnits.getChildren();
@@ -160,36 +154,31 @@
                     targetEnemy = enemiesInSameCol[0];
                 }
 
-                // 矢の画像スプライトを作成して発射（画像がない場合はフォールバックとして四角形）
                 let arrow;
                 try {
                     arrow = scene.add.sprite(unit.x, unit.y, 'arrow').setOrigin(0.5);
-                    arrow.setDisplaySize(30, 70); // 矢のサイズ調整
+                    arrow.setDisplaySize(30, 70);
                 } catch(e) {
                     arrow = scene.add.rectangle(unit.x, unit.y, 8, 80, 0xffea00).setOrigin(0.5);
                 }
 
                 scene.physics.add.existing(arrow);
-                arrow.body.setVelocityY(-1200); // 勢いよく上へ発射！
+                arrow.body.setVelocityY(-1200);
 
                 const damage = unit.getData('level') * 25; 
                 let hitDone = false;
 
-                // 矢が飛んでいる最中、敵にヒットするか監視するループ
                 const updateEvent = scene.time.addEvent({
                     delay: 20,
                     loop: true,
                     callback: () => {
-                        // 画面外（一番上：Yが0以下）まで飛び抜けたら消滅
                         if (arrow.y < -50) {
                             arrow.destroy();
                             updateEvent.remove();
                             return;
                         }
 
-                        // ターゲットの敵がいて、まだヒットしていなく、矢が敵の高さに到達した場合
                         if (targetEnemy && targetEnemy.active && !hitDone) {
-                            // 矢の先端が敵のY座標にぶつかった判定
                             if (arrow.y <= targetEnemy.y + TILE_SIZE/2) {
                                 hitDone = true;
                                 const currentHP = targetEnemy.getData('hp');
@@ -201,7 +190,7 @@
                                     targetEnemy.setData('hp', newHP);
                                     targetEnemy.getData('text').setText(`Enemy\nHP:${newHP}`);
                                 }
-                                arrow.destroy(); // 命中したので矢が刺さって消える
+                                arrow.destroy();
                                 updateEvent.remove();
                             }
                         }
@@ -209,7 +198,6 @@
                 });
             });
 
-            // 攻撃アニメーションの総待ち時間
             scene.time.delayedCall(800, () => { if(onComplete) onComplete(); });
         }
 
@@ -234,7 +222,7 @@
             });
 
             enemiesToDestroy.forEach(e => {
-                if (e.getData('text')) e.getData('text'].destroy();
+                if (e.getData('text')) e.getData('text').destroy(); // ← ここを修正しました！
                 e.destroy();
             });
 
