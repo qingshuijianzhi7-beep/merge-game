@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Real Photo</title>
+    <title>Merge Shoot RPG - Custom Arrow</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -16,13 +16,7 @@
     <script>
         const config = {
             type: Phaser.AUTO,
-            scale: {
-                mode: Phaser.Scale.FIT,
-                autoCenter: Phaser.Scale.CENTER_BOTH,
-                width: 720,
-                height: 1280,
-                parent: 'game-container'
-            },
+            scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 720, height: 1280, parent: 'game-container' },
             backgroundColor: '#1e1e1e',
             physics: { default: 'arcade', arcade: { debug: false } },
             scene: { preload: preload, create: create, update: update }
@@ -31,13 +25,10 @@
         const game = new Phaser.Game(config);
 
         let alliedUnits, enemyUnits;
-        let turnText;
-        let turn = 1;
-        let isTurnExecuting = false;
+        let turnText, turn = 1, isTurnExecuting = false;
         
         const MAX_HP = 1000;
-        let globalHP = 1000;
-        let hpBarFill, hpText;
+        let globalHP = 1000, hpBarFill, hpText;
 
         const COLS = 7, ENEMY_ROWS = 7, ALLIED_ROWS = 3;
         const TILE_SIZE = 90;
@@ -46,10 +37,11 @@
         const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40;
 
         // ==========================================
-        // 1. 画像を読み込む（ここで hero.png を読み込みます）
+        // 1. 画像の読み込み（ファイル名に注意！）
         // ==========================================
         function preload() {
-            // もし画像がない場合はエラーにならないよう、ダミーをロードしつつ hero.png を探します
+            // ★もしGitHub上のファイル名が hero.jpg なら、ここを hero.jpg に書き換える！
+            // 大文字小文字も完全に一致させること（例: Hero.jpg なら 'Hero.jpg'）
             this.load.image('hero', 'hero.png'); 
         }
 
@@ -98,24 +90,24 @@
             }
         }
 
-        // ==========================================
-        // 2. 味方の四角形を「画像」に変更！
-        // ==========================================
         function spawnAlliedUnit(scene, level, type, gridX, gridY, hp) {
             const worldX = START_X + gridX * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ALLIED_START_Y + gridY * TILE_SIZE + TILE_SIZE / 2;
             
-            // 四角形ではなく、スプライト(画像)を配置する
-            const unit = scene.add.sprite(worldX, worldY, 'hero').setOrigin(0.5);
-            
-            // マス目に収まるように画像のサイズを自動調整
-            unit.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
+            // 四角形の代わりに画像を配置
+            let unit;
+            try {
+                unit = scene.add.sprite(worldX, worldY, 'hero').setOrigin(0.5);
+                unit.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
+            } catch (e) {
+                // 画像読み込み失敗時は仮の四角形を出す安全装置
+                unit = scene.add.rectangle(worldX, worldY, TILE_SIZE - 10, TILE_SIZE - 10, 0x90caf9).setOrigin(0.5);
+            }
             
             unit.setInteractive();
             scene.input.setDraggable(unit);
             unit.setData({ isAllied: true, level: level, type: type, gridX: gridX, gridY: gridY, hp: hp });
             
-            // 下にレベルだけ表示
             const text = scene.add.text(worldX, worldY + 30, `Lv${level}`, { fontSize: '20px', fill: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5);
             unit.setData('text', text);
             alliedUnits.add(unit);
@@ -154,7 +146,7 @@
         }
 
         // ==========================================
-        // 3. ビームを「弓矢(🏹)」に変更！
+        // 2. 攻撃エフェクトを本格的な「上向きの矢」に変更
         // ==========================================
         function handleAttack(scene, onComplete) {
             const allies = alliedUnits.getChildren();
@@ -171,10 +163,19 @@
                     targetEnemy = enemiesInSameCol[0];
                 }
 
-                // 弓矢のテキスト（絵文字）を生成して上に飛ばす
-                const arrow = scene.add.text(unit.x, unit.y, '🏹', { fontSize: '40px' }).setOrigin(0.5);
+                // 絵文字をやめ、図形でしっかりした「矢」を描く
+                const arrow = scene.add.graphics();
+                arrow.fillStyle(0xffea00, 1); // 矢の色（黄色）
+                // 棒の部分 (x, y, width, height)
+                arrow.fillRect(-4, -15, 8, 40); 
+                // 先端の三角形 (x1, y1, x2, y2, x3, y3)
+                arrow.fillTriangle(0, -35, 16, -15, -16, -15); 
+                
+                arrow.x = unit.x;
+                arrow.y = unit.y;
+                
                 scene.physics.add.existing(arrow);
-                arrow.body.setVelocityY(-1200);
+                arrow.body.setVelocityY(-1500); // 発射スピード
 
                 const damage = unit.getData('level') * 25; 
 
@@ -190,7 +191,7 @@
                             targetEnemy.getData('text').setText(`Enemy\nHP:${newHP}`);
                         }
                     }
-                    arrow.destroy(); // 弓矢を消す
+                    arrow.destroy();
                 });
             });
 
@@ -230,7 +231,7 @@
             gameObject.x = dragX;
             gameObject.y = dragY;
             gameObject.getData('text').x = dragX;
-            gameObject.getData('text').y = dragY + 30; // テキスト（Lv）も追従させる
+            gameObject.getData('text').y = dragY + 30; 
             gameObject.setDepth(10);
             gameObject.getData('text').setDepth(11);
         }
@@ -285,7 +286,7 @@
             unit.x = worldX;
             unit.y = worldY;
             unit.getData('text').x = worldX;
-            unit.getData('text').y = worldY + 30; // 戻る時もテキスト位置を補正
+            unit.getData('text').y = worldY + 30; 
         }
     </script>
 </body>
