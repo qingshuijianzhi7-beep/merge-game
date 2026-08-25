@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Fixed</title>
+    <title>Merge Shoot RPG - Real Photo</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -24,66 +24,53 @@
                 parent: 'game-container'
             },
             backgroundColor: '#1e1e1e',
-            physics: {
-                default: 'arcade',
-                arcade: { debug: false }
-            },
-            scene: {
-                preload: preload,
-                create: create,
-                update: update
-            }
+            physics: { default: 'arcade', arcade: { debug: false } },
+            scene: { preload: preload, create: create, update: update }
         };
 
         const game = new Phaser.Game(config);
 
-        // --- 変数設定 ---
         let alliedUnits, enemyUnits;
         let turnText;
         let turn = 1;
         let isTurnExecuting = false;
         
-        // ライフゲージ用
         const MAX_HP = 1000;
         let globalHP = 1000;
         let hpBarFill, hpText;
 
-        // グリッド設定
-        const COLS = 7;
-        const ENEMY_ROWS = 7;
-        const ALLIED_ROWS = 3;
-        
+        const COLS = 7, ENEMY_ROWS = 7, ALLIED_ROWS = 3;
         const TILE_SIZE = 90;
-        const START_X = (720 - (TILE_SIZE * COLS)) / 2; // 45px
-        
+        const START_X = (720 - (TILE_SIZE * COLS)) / 2;
         const ENEMY_START_Y = 120;
         const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40;
 
-        function preload() {}
+        // ==========================================
+        // 1. 画像を読み込む（ここで hero.png を読み込みます）
+        // ==========================================
+        function preload() {
+            // もし画像がない場合はエラーにならないよう、ダミーをロードしつつ hero.png を探します
+            this.load.image('hero', 'hero.png'); 
+        }
 
         function create() {
-            // UIテキスト
             turnText = this.add.text(360, 40, `TURN: ${turn}`, { fontSize: '32px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
 
-            // 盤面グリッド描画
             setupGrid(this, { x: START_X, y: ENEMY_START_Y, color: 0x4a1a1a }, ENEMY_ROWS, COLS);
             setupGrid(this, { x: START_X, y: ALLIED_START_Y, color: 0x3a3a3a }, ALLIED_ROWS, COLS);
 
             alliedUnits = this.add.group();
             enemyUnits = this.add.group();
 
-            // --- 初期配置（味方） ---
-            spawnAlliedUnit(this, 1, 'Warrior', 0, 0, 1);
-            spawnAlliedUnit(this, 1, 'Warrior', 1, 0, 1);
-            spawnAlliedUnit(this, 2, 'Mage',    3, 1, 2);
-            spawnAlliedUnit(this, 3, 'Dragon',  6, 2, 4);
+            spawnAlliedUnit(this, 1, 'Hero', 0, 0, 1);
+            spawnAlliedUnit(this, 1, 'Hero', 1, 0, 1);
+            spawnAlliedUnit(this, 2, 'Hero', 3, 1, 2);
+            spawnAlliedUnit(this, 3, 'Hero', 6, 2, 4);
 
-            // --- 初期配置（敵：全員同じ「Enemy」・HP100で統一） ---
             spawnEnemyUnit(this, 1, 'Enemy', 1, 1, 100);
             spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 100);
             spawnEnemyUnit(this, 1, 'Enemy', 5, 2, 100);
 
-            // --- 下部UI (ライフ ＆ FIREボタン) ---
             const uiY = 1150;
             this.add.text(70, uiY, 'LIFE', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
             this.add.rectangle(130, uiY, 380, 40, 0x555555).setOrigin(0, 0.5);
@@ -93,9 +80,7 @@
             const attackBtn = this.add.circle(620, uiY, 60, 0xff3d00).setInteractive();
             this.add.text(620, uiY, 'FIRE!', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
             
-            attackBtn.on('pointerdown', () => {
-                executeTurn(this);
-            });
+            attackBtn.on('pointerdown', () => executeTurn(this));
 
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
@@ -113,14 +98,25 @@
             }
         }
 
+        // ==========================================
+        // 2. 味方の四角形を「画像」に変更！
+        // ==========================================
         function spawnAlliedUnit(scene, level, type, gridX, gridY, hp) {
             const worldX = START_X + gridX * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ALLIED_START_Y + gridY * TILE_SIZE + TILE_SIZE / 2;
-            const unit = scene.add.rectangle(worldX, worldY, TILE_SIZE - 10, TILE_SIZE - 10, getUnitColor(level)).setOrigin(0.5);
+            
+            // 四角形ではなく、スプライト(画像)を配置する
+            const unit = scene.add.sprite(worldX, worldY, 'hero').setOrigin(0.5);
+            
+            // マス目に収まるように画像のサイズを自動調整
+            unit.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
+            
             unit.setInteractive();
             scene.input.setDraggable(unit);
             unit.setData({ isAllied: true, level: level, type: type, gridX: gridX, gridY: gridY, hp: hp });
-            const text = scene.add.text(worldX, worldY, `Lv${level}\n${type}`, { fontSize: '18px', fill: '#000', align: 'center', fontStyle: 'bold' }).setOrigin(0.5);
+            
+            // 下にレベルだけ表示
+            const text = scene.add.text(worldX, worldY + 30, `Lv${level}`, { fontSize: '20px', fill: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5);
             unit.setData('text', text);
             alliedUnits.add(unit);
             return unit;
@@ -137,28 +133,17 @@
             return unit;
         }
 
-        function getUnitColor(level) {
-            const colors = { 1: 0x90caf9, 2: 0x64b5f6, 3: 0xffb74d, 4: 0xff8a65 };
-            return colors[level] || 0xeeeeee;
-        }
-
         function takeDamage(amount) {
             globalHP -= amount;
             if (globalHP < 0) globalHP = 0;
-            
             hpBarFill.width = 380 * (globalHP / MAX_HP);
             hpText.setText(`${globalHP} / ${MAX_HP}`);
-
-            if (globalHP === 0) {
-                alert("GAME OVER! 味方のライフがゼロになった！");
-            }
+            if (globalHP === 0) alert("GAME OVER! 味方のライフがゼロになった！");
         }
 
-        // --- ターン制御 ---
         function executeTurn(scene) {
             if (isTurnExecuting) return;
             isTurnExecuting = true;
-
             handleAttack(scene, () => {
                 moveEnemiesForward(scene, () => {
                     turn++;
@@ -168,39 +153,32 @@
             });
         }
 
-        // --- 攻撃処理（同列の最手前の敵にヒット） ---
+        // ==========================================
+        // 3. ビームを「弓矢(🏹)」に変更！
+        // ==========================================
         function handleAttack(scene, onComplete) {
             const allies = alliedUnits.getChildren();
             const enemies = enemyUnits.getChildren();
             
-            if (allies.length === 0) {
-                if(onComplete) onComplete();
-                return;
-            }
+            if (allies.length === 0) { if(onComplete) onComplete(); return; }
 
             allies.forEach(unit => {
-                const alliedCol = unit.getData('gridX'); // 味方の列番号(0~6)
-
-                // 同じ列(alliedCol)にいる敵だけを抽出
+                const alliedCol = unit.getData('gridX');
                 const enemiesInSameCol = enemies.filter(enemy => enemy.active && enemy.getData('gridX') === alliedCol);
-
-                // 同列の中で一番下にいる（gridYが最も大きい）敵をターゲットに選ぶ
                 let targetEnemy = null;
                 if (enemiesInSameCol.length > 0) {
                     enemiesInSameCol.sort((a, b) => b.getData('gridY') - a.getData('gridY'));
                     targetEnemy = enemiesInSameCol[0];
                 }
 
-                // ビームの作成
-                const beam = scene.add.rectangle(unit.x, unit.y, 8, 150, 0xffea00).setOrigin(0.5);
-                scene.physics.add.existing(beam);
-                beam.body.setVelocityY(-1200);
+                // 弓矢のテキスト（絵文字）を生成して上に飛ばす
+                const arrow = scene.add.text(unit.x, unit.y, '🏹', { fontSize: '40px' }).setOrigin(0.5);
+                scene.physics.add.existing(arrow);
+                arrow.body.setVelocityY(-1200);
 
                 const damage = unit.getData('level') * 25; 
 
-                // 命中チェック
                 scene.time.delayedCall(200, () => {
-                    // 同列にターゲットとなる敵が存在していた場合のみダメージ計算
                     if (targetEnemy && targetEnemy.active) {
                         const currentHP = targetEnemy.getData('hp');
                         const newHP = currentHP - damage;
@@ -212,24 +190,18 @@
                             targetEnemy.getData('text').setText(`Enemy\nHP:${newHP}`);
                         }
                     }
-                    beam.destroy();
+                    arrow.destroy(); // 弓矢を消す
                 });
             });
 
-            scene.time.delayedCall(400, () => {
-                if(onComplete) onComplete();
-            });
+            scene.time.delayedCall(400, () => { if(onComplete) onComplete(); });
         }
 
-        // --- 敵の前進処理 ---
         function moveEnemiesForward(scene, onComplete) {
             const enemies = enemyUnits.getChildren();
             let enemiesToDestroy = [];
 
-            if(enemies.length === 0) {
-                if(onComplete) onComplete();
-                return;
-            }
+            if(enemies.length === 0) { if(onComplete) onComplete(); return; }
 
             enemies.forEach(enemy => {
                 if (!enemy.active) return;
@@ -241,11 +213,7 @@
                     takeDamage(enemy.getData('hp'));
                     enemiesToDestroy.push(enemy);
                 } else {
-                    scene.tweens.add({
-                        targets: [enemy, enemy.getData('text')],
-                        y: worldY,
-                        duration: 300
-                    });
+                    scene.tweens.add({ targets: [enemy, enemy.getData('text')], y: worldY, duration: 300 });
                 }
             });
 
@@ -254,41 +222,33 @@
                 e.destroy();
             });
 
-            scene.time.delayedCall(350, () => {
-                if(onComplete) onComplete();
-            });
+            scene.time.delayedCall(350, () => { if(onComplete) onComplete(); });
         }
 
-        // --- ドラッグ処理 ---
         function handleDrag(pointer, gameObject, dragX, dragY) {
             if (isTurnExecuting) return;
             gameObject.x = dragX;
             gameObject.y = dragY;
             gameObject.getData('text').x = dragX;
-            gameObject.getData('text').y = dragY;
+            gameObject.getData('text').y = dragY + 30; // テキスト（Lv）も追従させる
             gameObject.setDepth(10);
             gameObject.getData('text').setDepth(11);
         }
 
-        // --- ドロップ・マージ処理（バグ修正済） ---
         function handleDragEnd(pointer, gameObject) {
             gameObject.setDepth(0);
             gameObject.getData('text').setDepth(0);
 
-            if (isTurnExecuting) {
-                returnAllUnitToPosition(gameObject);
-                return;
-            }
+            if (isTurnExecuting) { returnAllUnitToPosition(gameObject); return; }
 
-            const scene = gameObject.scene; // シーン参照を事前に確保
+            const scene = gameObject.scene;
             const dropGridX = Math.floor((gameObject.x - START_X) / TILE_SIZE);
             const dropGridY = Math.floor((gameObject.y - ALLIED_START_Y) / TILE_SIZE);
             const oldX = gameObject.getData('gridX');
             const oldY = gameObject.getData('gridY');
 
             if (dropGridX < 0 || dropGridX >= COLS || dropGridY < 0 || dropGridY >= ALLIED_ROWS || (dropGridX === oldX && dropGridY === oldY)) {
-                returnAllUnitToPosition(gameObject);
-                return;
+                returnAllUnitToPosition(gameObject); return;
             }
 
             let targetUnit = null;
@@ -298,35 +258,23 @@
                 }
             });
 
-            // 同じ種類のユニットが重なった場合（マージ）
             if (targetUnit && targetUnit.getData('type') === gameObject.getData('type') && targetUnit.getData('level') === gameObject.getData('level')) {
                 const newLevel = gameObject.getData('level') + 1;
                 const type = gameObject.getData('type');
 
-                // テキストとオブジェクトを安全に破壊
                 if (gameObject.getData('text')) gameObject.getData('text').destroy();
                 if (targetUnit.getData('text')) targetUnit.getData('text').destroy();
-                
                 alliedUnits.remove(gameObject, true, true);
                 alliedUnits.remove(targetUnit, true, true);
 
-                // 新しいユニットを安全に出現させる
                 spawnAlliedUnit(scene, newLevel, type, dropGridX, dropGridY, 10);
-                
-                // ターン消費
                 executeTurn(scene);
-
             } else if (!targetUnit) {
-                // 空きマスへの移動
                 gameObject.setData('gridX', dropGridX);
                 gameObject.setData('gridY', dropGridY);
                 returnAllUnitToPosition(gameObject);
-                
-                // ターン消費
                 executeTurn(scene);
-
             } else {
-                // マージ不可の移動
                 returnAllUnitToPosition(gameObject);
             }
         }
@@ -337,7 +285,7 @@
             unit.x = worldX;
             unit.y = worldY;
             unit.getData('text').x = worldX;
-            unit.getData('text').y = worldY;
+            unit.getData('text').y = worldY + 30; // 戻る時もテキスト位置を補正
         }
     </script>
 </body>
