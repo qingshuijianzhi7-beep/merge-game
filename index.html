@@ -7,23 +7,29 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; }
-        canvas { display: block; margin: 0 auto; }
+        #game-container { width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        canvas { display: block; }
     </style>
 </head>
 <body>
+    <div id="game-container"></div>
     <script>
         // ==========================================
-        // ゲームの設定
+        // ゲームの設定（スマホ自動フィット機能を確実に追加）
         // ==========================================
         const config = {
             type: Phaser.AUTO,
-            width: 720, // スマホの縦画面サイズ
-            height: 1280,
-            parent: 'game-container',
+            scale: {
+                mode: Phaser.Scale.FIT,               // これが抜けていた！画面に収める設定
+                autoCenter: Phaser.Scale.CENTER_BOTH, // 中央揃え
+                width: 720,
+                height: 1280,
+                parent: 'game-container'
+            },
             backgroundColor: '#1e1e1e',
             physics: {
                 default: 'arcade',
-                arcade: { debug: false } // 物理演算をONにする（攻撃ビーム用）
+                arcade: { debug: false }
             },
             scene: {
                 preload: preload,
@@ -34,9 +40,6 @@
 
         const game = new Phaser.Game(config);
 
-        // ==========================================
-        // グローバル変数
-        // ==========================================
         let grid;
         let alliedGrid;
         let enemyGrid;
@@ -49,75 +52,47 @@
         let turn = 15;
         let nextEnemyIn = 3;
 
-        // グリッドの設定 (3x7)
+        // グリッド設定
         const ALLIED_ROWS = 7;
         const ALLIED_COLS = 3;
-        const TILE_SIZE = 120; // タイル1マスのサイズ
+        const TILE_SIZE = 120; // 1マスのサイズ
 
-        // ==========================================
-        // シーン関数
-        // ==========================================
-        
-        // 1. アセットのロード（画像がないので、プレースホルダーを登録）
-        function preload() {
-            // ※本物の画像を使う場合は、ここに load.image('name', 'path/to/image.png') を書きます。
-        }
+        function preload() {}
 
-        // 2. ゲーム画面の構築（UI、グリッド、ユニットの配置）
         function create() {
-            // --- UIと背景 ---
+            // UIテキスト
             scoreText = this.add.text(360, 50, `SCORE: ${score}`, { fontSize: '48px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
             turnText = this.add.text(360, 120, `TURN: ${turn} | NEXT ENEMY IN ${nextEnemyIn}`, { fontSize: '32px', fill: '#fff' }).setOrigin(0.5);
 
-            // --- ALLIED GRID (3x7) の描画 ---
-            const alliedGridConfig = {
-                x: 100, // グリッドの左上のX座標
-                y: 500, // グリッドの左上のY座標
-                color: 0x3a3a3a // タイルの色
-            };
+            // 敵ゾーン描画 (1行)
+            const enemyGridConfig = { x: 180, y: 160, color: 0x4a1a1a };
+            enemyGrid = setupGrid(this, enemyGridConfig, 1, ALLIED_COLS);
+
+            // 味方ゾーン描画 (7行x3列)
+            const alliedGridConfig = { x: 180, y: 320, color: 0x3a3a3a };
             alliedGrid = setupGrid(this, alliedGridConfig, ALLIED_ROWS, ALLIED_COLS);
 
-            // --- ENEMY ZONE の描画 ---
-            const enemyGridConfig = {
-                x: 100,
-                y: 180,
-                color: 0x4a1a1a // 敵ゾーンは赤っぽく
-            };
-            enemyGrid = setupGrid(this, enemyGridConfig, 2, ALLIED_COLS); // 敵は2行
-
-            // --- ユニットグループの作成 ---
             alliedUnits = this.add.group();
             enemyUnits = this.add.group();
 
-            // --- 初期ユニットの配置 ---
-            // 味方
-            spawnAlliedUnit(this, 1, 'Warrior', 0, 6, 1); // Lv1 戦士 (X:0, Y:6)
-            spawnAlliedUnit(this, 1, 'Warrior', 2, 6, 1); // Lv1 戦士 (X:2, Y:6)
-            spawnAlliedUnit(this, 2, 'Mage', 1, 5, 2);    // Lv2 メイジ (X:1, Y:5)
-            // 敵
-            spawnEnemyUnit(this, 3, 'Slime', 1, 0, 100, 10); // Lv3 スライム
+            // 初期配置
+            spawnAlliedUnit(this, 1, 'Warrior', 0, 6, 1);
+            spawnAlliedUnit(this, 1, 'Warrior', 2, 6, 1);
+            spawnAlliedUnit(this, 2, 'Mage', 1, 5, 2);
+            spawnEnemyUnit(this, 3, 'Enemy', 1, 0, 100, 10);
 
-            // --- 攻撃ボタン (FIRE!) ---
-            attackButton = this.add.rectangle(360, 1200, 400, 100, 0xff4d4d).setInteractive();
-            this.add.text(360, 1200, 'FIRE!', { fontSize: '48px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
-
-            // ボタンクリックイベント
+            // 攻撃ボタン (位置をスマホ下部に調整)
+            attackButton = this.add.rectangle(360, 1220, 300, 80, 0xff4d4d).setInteractive();
+            this.add.text(360, 1220, 'FIRE!', { fontSize: '40px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
             attackButton.on('pointerdown', handleAttack, this);
 
-            // --- ドラッグアンドドロップの有効化 ---
+            // ドラッグ操作の有効化
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
         }
 
-        // 3. ゲームループ（必要に応じて使用）
-        function update() {
-        }
+        function update() {}
 
-        // ==========================================
-        // ユーティリティ関数
-        // ==========================================
-
-        // グリッドをセットアップする関数
         function setupGrid(scene, config, rows, cols) {
             let gridTiles = scene.add.group();
             for (let r = 0; r < rows; r++) {
@@ -131,84 +106,65 @@
             return gridTiles;
         }
 
-        // 味方ユニットを作成する関数
         function spawnAlliedUnit(scene, level, type, gridX, gridY, hp) {
-            const worldX = 100 + gridX * TILE_SIZE + TILE_SIZE / 2;
-            const worldY = 500 + gridY * TILE_SIZE + TILE_SIZE / 2;
+            const worldX = 180 + gridX * TILE_SIZE + TILE_SIZE / 2;
+            const worldY = 320 + gridY * TILE_SIZE + TILE_SIZE / 2;
 
-            // プレースホルダーとして、レベルに応じた色と数字の四角形を作成
             const color = getUnitColor(level);
             const unit = scene.add.rectangle(worldX, worldY, TILE_SIZE - 10, TILE_SIZE - 10, color).setOrigin(0.5);
-            unit.setInteractive(); // クリック・ドラッグ可能にする
-            scene.input.setDraggable(unit); // ドラッグを有効にする
+            unit.setInteractive();
+            scene.input.setDraggable(unit);
 
-            // ユニットのメタデータを保存
-            unit.setData('isAllied', true);
-            unit.setData('level', level);
-            unit.setData('type', type);
-            unit.setData('gridX', gridX);
-            unit.setData('gridY', gridY);
-            unit.setData('hp', hp);
+            unit.setData({ isAllied: true, level: level, type: type, gridX: gridX, gridY: gridY, hp: hp });
 
-            // レベルテキストを追加
-            const text = scene.add.text(worldX, worldY, `Lv${level}\n${type}\nHP:${hp}`, { fontSize: '20px', fill: '#fff', align: 'center' }).setOrigin(0.5);
-            unit.setData('text', text); // テキストも保存しておく
+            const text = scene.add.text(worldX, worldY, `Lv${level}\n${type}`, { fontSize: '24px', fill: '#000', align: 'center', fontStyle: 'bold' }).setOrigin(0.5);
+            unit.setData('text', text);
 
             alliedUnits.add(unit);
             return unit;
         }
 
-        // 敵ユニットを作成する関数
         function spawnEnemyUnit(scene, level, type, gridX, gridY, hp, atk) {
-            const worldX = 100 + gridX * TILE_SIZE + TILE_SIZE / 2;
-            const worldY = 180 + gridY * TILE_SIZE + TILE_SIZE / 2;
+            const worldX = 180 + gridX * TILE_SIZE + TILE_SIZE / 2;
+            const worldY = 160 + gridY * TILE_SIZE + TILE_SIZE / 2;
 
-            // 敵は赤い四角形
             const unit = scene.add.rectangle(worldX, worldY, TILE_SIZE - 10, TILE_SIZE - 10, 0xff0000).setOrigin(0.5);
-            
-            unit.setData('isAllied', false);
-            unit.setData('level', level);
-            unit.setData('type', type);
-            unit.setData('hp', hp);
-            unit.setData('atk', atk);
+            unit.setData({ isAllied: false, level: level, type: type, hp: hp });
 
-            const text = scene.add.text(worldX, worldY, `Lv${level}\n${type}\nHP:${hp}`, { fontSize: '20px', fill: '#fff', align: 'center' }).setOrigin(0.5);
+            const text = scene.add.text(worldX, worldY, `Lv${level}\n${type}\nHP:${hp}`, { fontSize: '24px', fill: '#fff', align: 'center', fontStyle: 'bold' }).setOrigin(0.5);
             unit.setData('text', text);
 
             enemyUnits.add(unit);
             return unit;
         }
 
-        // レベルに応じたユニットの色を取得する関数
         function getUnitColor(level) {
             const colors = { 1: 0xeee4da, 2: 0xede0c8, 3: 0xf2b179, 4: 0xf59563 };
-            return colors[level] || 0x1e1e24; // デフォルト色
+            return colors[level] || 0x1e1e24;
         }
 
-        // ==========================================
-        // イベントハンドラ（ドラッグ＆ドロップ、攻撃）
-        // ==========================================
-
         function handleDrag(pointer, gameObject, dragX, dragY) {
-            // ドラッグ中のユニットとテキストの位置を更新
             gameObject.x = dragX;
             gameObject.y = dragY;
             gameObject.getData('text').x = dragX;
             gameObject.getData('text').y = dragY;
+            // ドラッグ中は手前に表示
+            gameObject.setDepth(10);
+            gameObject.getData('text').setDepth(11);
         }
 
         function handleDragEnd(pointer, gameObject) {
-            // ドロップされた場所のグリッド座標を計算
-            const dropGridX = Math.floor((gameObject.x - 100) / TILE_SIZE);
-            const dropGridY = Math.floor((gameObject.y - 500) / TILE_SIZE);
+            gameObject.setDepth(0);
+            gameObject.getData('text').setDepth(0);
 
-            // グリッド外か確認
+            const dropGridX = Math.floor((gameObject.x - 180) / TILE_SIZE);
+            const dropGridY = Math.floor((gameObject.y - 320) / TILE_SIZE);
+
             if (dropGridX < 0 || dropGridX >= ALLIED_COLS || dropGridY < 0 || dropGridY >= ALLIED_ROWS) {
                 returnAllUnitToPosition(gameObject);
                 return;
             }
 
-            // ドロップ先にすでにユニットがいるか確認
             let targetUnit = null;
             alliedUnits.getChildren().forEach(unit => {
                 if (unit !== gameObject && unit.getData('gridX') === dropGridX && unit.getData('gridY') === dropGridY) {
@@ -216,16 +172,11 @@
                 }
             });
 
-            // -----------------
-            // マージ（合体）ロジック！
-            // -----------------
             if (targetUnit && targetUnit.getData('type') === gameObject.getData('type') && targetUnit.getData('level') === gameObject.getData('level')) {
-                // マージ成功！
                 const newLevel = gameObject.getData('level') + 1;
                 const newHP = gameObject.getData('hp') + targetUnit.getData('hp');
                 const type = gameObject.getData('type');
 
-                // 古いユニットを削除
                 alliedUnits.remove(gameObject);
                 alliedUnits.remove(targetUnit);
                 gameObject.getData('text').destroy();
@@ -233,73 +184,56 @@
                 gameObject.destroy();
                 targetUnit.destroy();
 
-                // 新しいユニットを配置
                 spawnAlliedUnit(this, newLevel, type, dropGridX, dropGridY, newHP);
-
-                score += 1000 * newLevel; // スコア加算
+                
+                score += 1000 * newLevel;
                 scoreText.setText(`SCORE: ${score}`);
-
             } else {
-                // ドロップ先に何もない、またはマージできない場合は移動
                 gameObject.setData('gridX', dropGridX);
                 gameObject.setData('gridY', dropGridY);
                 returnAllUnitToPosition(gameObject);
             }
         }
 
-        // ユニットを本来のグリッド位置に戻す関数
         function returnAllUnitToPosition(unit) {
-            const worldX = 100 + unit.getData('gridX') * TILE_SIZE + TILE_SIZE / 2;
-            const worldY = 500 + unit.getData('gridY') * TILE_SIZE + TILE_SIZE / 2;
+            const worldX = 180 + unit.getData('gridX') * TILE_SIZE + TILE_SIZE / 2;
+            const worldY = 320 + unit.getData('gridY') * TILE_SIZE + TILE_SIZE / 2;
             unit.x = worldX;
             unit.y = worldY;
             unit.getData('text').x = worldX;
             unit.getData('text').y = worldY;
         }
 
-        // -----------------
-        // 攻撃（シューティング）ロジック！
-        // -----------------
         function handleAttack() {
-            console.log('Attacking!');
-
-            // 敵全体をターゲットにする
             const targets = enemyUnits.getChildren();
             if (targets.length === 0) return;
 
-            // 味方ユニット全員から攻撃ビームを飛ばすアニメーション
             alliedUnits.getChildren().forEach(unit => {
                 const beam = this.add.rectangle(unit.x, unit.y, 10, 200, 0x00ffff).setOrigin(0.5);
                 this.physics.add.existing(beam);
-                beam.body.setVelocityY(-1000); // 上に飛ばす
+                beam.body.setVelocityY(-1500);
 
-                // ターゲットの中からランダムに一人選んでダメージを与える（簡易実装）
                 const targetEnemy = targets[Math.floor(Math.random() * targets.length)];
-                
-                // ダメージ計算（レベルに基づいてダメージを与えるなど）
                 const damage = unit.getData('level') * 10;
                 
-                this.time.delayedCall(500, () => {
+                this.time.delayedCall(300, () => {
+                    if (!targetEnemy.active) return;
                     const currentHP = targetEnemy.getData('hp');
                     const newHP = currentHP - damage;
                     if (newHP <= 0) {
-                        // 敵が倒れた
                         targetEnemy.getData('text').destroy();
                         targetEnemy.destroy();
                     } else {
                         targetEnemy.setData('hp', newHP);
                         targetEnemy.getData('text').setText(`Lv${targetEnemy.getData('level')}\n${targetEnemy.getData('type')}\nHP:${newHP}`);
                     }
-                    beam.destroy(); // ビームを削除
+                    beam.destroy();
                 }, null, this);
             });
 
-            // ターン数を更新
             turn++;
             turnText.setText(`TURN: ${turn} | NEXT ENEMY IN ${nextEnemyIn}`);
         }
-
     </script>
-    <div id="game-container"></div>
 </body>
 </html>
