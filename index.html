@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Layout Fix</title>
+    <title>Merge Shoot RPG - Turn Based</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
-        /* スマホの余白を完全に消して、画面中央に固定する強力なCSS */
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
         #game-container { width: 100%; height: 100%; }
         canvas { display: block; max-width: 100%; max-height: 100%; object-fit: contain; }
@@ -15,16 +14,13 @@
 <body>
     <div id="game-container"></div>
     <script>
-        // ==========================================
-        // 1. ゲームの基本設定（スマホ画面へのフィットを最優先）
-        // ==========================================
         const config = {
             type: Phaser.AUTO,
             scale: {
-                mode: Phaser.Scale.FIT,               // 画面内にアスペクト比を保って収める
-                autoCenter: Phaser.Scale.CENTER_BOTH, // 上下左右の中央に配置
-                width: 720,                           // 基準となる横幅（7列入るように広め）
-                height: 1280,                         // 基準となる縦幅
+                mode: Phaser.Scale.FIT,
+                autoCenter: Phaser.Scale.CENTER_BOTH,
+                width: 720,
+                height: 1280,
                 parent: 'game-container'
             },
             backgroundColor: '#1e1e1e',
@@ -41,33 +37,34 @@
 
         const game = new Phaser.Game(config);
 
-        // ==========================================
-        // 変数と盤面の設定
-        // ==========================================
+        // --- 変数設定 ---
         let alliedUnits, enemyUnits;
-        let scoreText, turnText;
-        let score = 12450;
-        let turn = 15;
-        let nextEnemyIn = 3;
+        let turnText;
+        let turn = 1;
+        let isTurnExecuting = false; // ターン処理中（演出中）は操作できないようにするロック
+        
+        // ライフゲージ用
+        const MAX_HP = 1000;
+        let globalHP = 1000;
+        let hpBarFill, hpText;
 
         // グリッド設定
-        const COLS = 7;           // 全体の横の列数（7列）
-        const ENEMY_ROWS = 7;     // 敵エリアの縦の行数（7行）
-        const ALLIED_ROWS = 3;    // 味方エリアの縦の行数（3行）
+        const COLS = 7;
+        const ENEMY_ROWS = 7;
+        const ALLIED_ROWS = 3;
         
-        // 画面幅720に対して、左右に少し余白を持たせて7列を配置する計算
-        const TILE_SIZE = 90;     // 1マスのサイズを少し小さく調整
-        const START_X = (720 - (TILE_SIZE * COLS)) / 2; // グリッドを描き始めるX座標（中央寄せ）
+        const TILE_SIZE = 90;
+        const START_X = (720 - (TILE_SIZE * COLS)) / 2; // 45px
         
-        const ENEMY_START_Y = 250; // 敵エリアの開始Y座標
-        const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 60; // 敵の下に少し隙間(60px)を空けて味方エリア
+        // 全体を上にシフト
+        const ENEMY_START_Y = 120;
+        const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40; // 敵と味方の間の隙間(40px)
 
         function preload() {}
 
         function create() {
-            // --- UIテキスト ---
-            scoreText = this.add.text(360, 50, `SCORE: ${score}`, { fontSize: '40px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
-            turnText = this.add.text(360, 110, `TURN: ${turn} | NEXT ENEMY IN ${nextEnemyIn}`, { fontSize: '24px', fill: '#fff' }).setOrigin(0.5);
+            // --- UIテキスト (上に配置) ---
+            turnText = this.add.text(360, 40, `TURN: ${turn}`, { fontSize: '32px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
 
             // --- 敵エリア (7行x7列) ---
             setupGrid(this, { x: START_X, y: ENEMY_START_Y, color: 0x4a1a1a }, ENEMY_ROWS, COLS);
@@ -79,30 +76,44 @@
             enemyUnits = this.add.group();
 
             // --- 初期配置テスト ---
-            // 味方 (X座標は0~6列目、Y座標は0~2行目)
             spawnAlliedUnit(this, 1, 'Warrior', 0, 0, 1);
             spawnAlliedUnit(this, 1, 'Warrior', 1, 0, 1);
             spawnAlliedUnit(this, 2, 'Mage',    3, 1, 2);
             spawnAlliedUnit(this, 3, 'Dragon',  6, 2, 4);
 
-            // 敵 (X座標は0~6列目、Y座標は0~6行目)
-            spawnEnemyUnit(this, 5, 'Boss', 3, 0, 500);
-            spawnEnemyUnit(this, 2, 'Slime', 1, 6, 50);
-            spawnEnemyUnit(this, 2, 'Slime', 5, 6, 50);
+            spawnEnemyUnit(this, 5, 'Boss',  3, 0, 300);
+            spawnEnemyUnit(this, 2, 'Slime', 1, 3, 50);
+            spawnEnemyUnit(this, 2, 'Slime', 5, 4, 50);
 
-            // --- 攻撃ボタン ---
-            const attackBtn = this.add.rectangle(360, ALLIED_START_Y + (ALLIED_ROWS * TILE_SIZE) + 80, 240, 70, 0xffb300).setInteractive();
-            this.add.text(360, ALLIED_START_Y + (ALLIED_ROWS * TILE_SIZE) + 80, 'ATTACK', { fontSize: '32px', fill: '#000', fontStyle: 'bold' }).setOrigin(0.5);
-            attackBtn.on('pointerdown', handleAttack, this);
+            // ==========================================
+            // 画面下のUI（ライフゲージ ＆ 丸形FIREボタン）
+            // ==========================================
+            const uiY = 1150; // 下部の空きスペース中央
 
-            // ドラッグ操作の有効化
+            // ライフテキスト
+            this.add.text(70, uiY, 'LIFE', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+            // ライフバーの背景（グレー）
+            this.add.rectangle(130, uiY, 380, 40, 0x555555).setOrigin(0, 0.5);
+            // ライフバーの中身（緑色）
+            hpBarFill = this.add.rectangle(130, uiY, 380, 40, 0x00e676).setOrigin(0, 0.5);
+            // ライフの数値
+            hpText = this.add.text(320, uiY, `${globalHP} / ${MAX_HP}`, { fontSize: '22px', fill: '#000', fontStyle:'bold' }).setOrigin(0.5);
+
+            // FIREボタン（丸形、右側に配置）
+            const attackBtn = this.add.circle(620, uiY, 60, 0xff3d00).setInteractive();
+            this.add.text(620, uiY, 'FIRE!', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+            
+            // FIREボタンタップでターン実行
+            attackBtn.on('pointerdown', () => {
+                executeTurn(this);
+            });
+
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
         }
 
         function update() {}
 
-        // --- 盤面を描画する関数 ---
         function setupGrid(scene, config, rows, cols) {
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
@@ -113,36 +124,26 @@
             }
         }
 
-        // --- 味方を生成する関数 ---
         function spawnAlliedUnit(scene, level, type, gridX, gridY, hp) {
             const worldX = START_X + gridX * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ALLIED_START_Y + gridY * TILE_SIZE + TILE_SIZE / 2;
-
             const unit = scene.add.rectangle(worldX, worldY, TILE_SIZE - 10, TILE_SIZE - 10, getUnitColor(level)).setOrigin(0.5);
             unit.setInteractive();
             scene.input.setDraggable(unit);
-
-            // 味方のデータを保存 (所属、レベル、名前、グリッド座標、HP)
             unit.setData({ isAllied: true, level: level, type: type, gridX: gridX, gridY: gridY, hp: hp });
-
             const text = scene.add.text(worldX, worldY, `Lv${level}\n${type}`, { fontSize: '18px', fill: '#000', align: 'center', fontStyle: 'bold' }).setOrigin(0.5);
             unit.setData('text', text);
-
             alliedUnits.add(unit);
             return unit;
         }
 
-        // --- 敵を生成する関数 ---
         function spawnEnemyUnit(scene, level, type, gridX, gridY, hp) {
             const worldX = START_X + gridX * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ENEMY_START_Y + gridY * TILE_SIZE + TILE_SIZE / 2;
-
             const unit = scene.add.rectangle(worldX, worldY, TILE_SIZE - 10, TILE_SIZE - 10, 0xcc0000).setOrigin(0.5);
-            unit.setData({ isAllied: false, hp: hp, level: level });
-
+            unit.setData({ isAllied: false, hp: hp, level: level, gridX: gridX, gridY: gridY });
             const text = scene.add.text(worldX, worldY, `Lv${level}\nHP:${hp}`, { fontSize: '18px', fill: '#fff', align: 'center', fontStyle: 'bold' }).setOrigin(0.5);
             unit.setData('text', text);
-
             enemyUnits.add(unit);
             return unit;
         }
@@ -152,8 +153,122 @@
             return colors[level] || 0xeeeeee;
         }
 
+        // --- ダメージ処理 ---
+        function takeDamage(amount) {
+            globalHP -= amount;
+            if (globalHP < 0) globalHP = 0;
+            
+            hpBarFill.width = 380 * (globalHP / MAX_HP);
+            hpText.setText(`${globalHP} / ${MAX_HP}`);
+
+            if (globalHP === 0) {
+                alert("GAME OVER! 味方のライフがゼロになった！");
+            }
+        }
+
+        // ==========================================
+        // ターン制御（行動開始）
+        // ==========================================
+        function executeTurn(scene) {
+            if (isTurnExecuting) return; // 処理中は重ねて押せないようにする
+            isTurnExecuting = true;
+
+            // 1. 味方の一斉攻撃
+            handleAttack(scene, () => {
+                // 2. 攻撃アニメーションが終わったら、敵が1マス前進
+                moveEnemiesForward(scene, () => {
+                    // 3. すべて完了したらターンを進める
+                    turn++;
+                    turnText.setText(`TURN: ${turn}`);
+                    isTurnExecuting = false;
+                });
+            });
+        }
+
+        // --- 攻撃処理（完了時にコールバックを呼ぶ） ---
+        function handleAttack(scene, onComplete) {
+            const targets = enemyUnits.getChildren();
+            const allies = alliedUnits.getChildren();
+            
+            if (targets.length === 0 || allies.length === 0) {
+                if(onComplete) onComplete();
+                return;
+            }
+
+            allies.forEach(unit => {
+                const beam = scene.add.rectangle(unit.x, unit.y, 8, 150, 0xffea00).setOrigin(0.5);
+                scene.physics.add.existing(beam);
+                beam.body.setVelocityY(-1200);
+
+                const targetEnemy = targets[Math.floor(Math.random() * targets.length)];
+                const damage = unit.getData('level') * 20; 
+                
+                scene.time.delayedCall(200, () => {
+                    if (targetEnemy.active) {
+                        const currentHP = targetEnemy.getData('hp');
+                        const newHP = currentHP - damage;
+                        if (newHP <= 0) {
+                            targetEnemy.getData('text').destroy();
+                            targetEnemy.destroy();
+                        } else {
+                            targetEnemy.setData('hp', newHP);
+                            targetEnemy.getData('text').setText(`Lv${targetEnemy.getData('level')}\nHP:${newHP}`);
+                        }
+                    }
+                    beam.destroy();
+                });
+            });
+
+            // ビーム発射演出が終わるまで待つ
+            scene.time.delayedCall(400, () => {
+                if(onComplete) onComplete();
+            });
+        }
+
+        // --- 敵の前進処理 ---
+        function moveEnemiesForward(scene, onComplete) {
+            const enemies = enemyUnits.getChildren();
+            let enemiesToDestroy = [];
+
+            if(enemies.length === 0) {
+                if(onComplete) onComplete();
+                return;
+            }
+
+            enemies.forEach(enemy => {
+                let newY = enemy.getData('gridY') + 1; // 1マス下へ
+                enemy.setData('gridY', newY);
+                const worldY = ENEMY_START_Y + newY * TILE_SIZE + TILE_SIZE / 2;
+
+                // 敵が一番下（7行目）を超えて味方エリアに侵入した場合
+                if (newY >= ENEMY_ROWS) {
+                    takeDamage(enemy.getData('hp')); // 敵の残りHP分、味方ライフにダメージ！
+                    enemiesToDestroy.push(enemy);
+                } else {
+                    // 通常の前進アニメーション
+                    scene.tweens.add({
+                        targets: [enemy, enemy.getData('text')],
+                        y: worldY,
+                        duration: 300
+                    });
+                }
+            });
+
+            // 侵入した敵は消滅させる
+            enemiesToDestroy.forEach(e => {
+                e.getData('text').destroy();
+                e.destroy();
+            });
+
+            // アニメーションが終わるまで待つ
+            scene.time.delayedCall(350, () => {
+                if(onComplete) onComplete();
+            });
+        }
+
         // --- ドラッグ中の処理 ---
         function handleDrag(pointer, gameObject, dragX, dragY) {
+            if (isTurnExecuting) return; // 攻撃中などは動かせない
             gameObject.x = dragX;
             gameObject.y = dragY;
             gameObject.getData('text').x = dragX;
@@ -162,22 +277,27 @@
             gameObject.getData('text').setDepth(11);
         }
 
-        // --- ドロップ時の合体判定 ---
+        // --- ドロップ・合体判定 ---
         function handleDragEnd(pointer, gameObject) {
             gameObject.setDepth(0);
             gameObject.getData('text').setDepth(0);
 
-            // 指を離した場所が味方エリアの何列目・何行目かを計算
-            const dropGridX = Math.floor((gameObject.x - START_X) / TILE_SIZE);
-            const dropGridY = Math.floor((gameObject.y - ALLIED_START_Y) / TILE_SIZE);
-
-            // 枠外なら元の場所に戻す
-            if (dropGridX < 0 || dropGridX >= COLS || dropGridY < 0 || dropGridY >= ALLIED_ROWS) {
+            if (isTurnExecuting) {
                 returnAllUnitToPosition(gameObject);
                 return;
             }
 
-            // ドロップ先に他の味方がいるか探す
+            const dropGridX = Math.floor((gameObject.x - START_X) / TILE_SIZE);
+            const dropGridY = Math.floor((gameObject.y - ALLIED_START_Y) / TILE_SIZE);
+            const oldX = gameObject.getData('gridX');
+            const oldY = gameObject.getData('gridY');
+
+            // 枠外、または元の場所と同じマスで離した場合はターンを消費しない
+            if (dropGridX < 0 || dropGridX >= COLS || dropGridY < 0 || dropGridY >= ALLIED_ROWS || (dropGridX === oldX && dropGridY === oldY)) {
+                returnAllUnitToPosition(gameObject);
+                return;
+            }
+
             let targetUnit = null;
             alliedUnits.getChildren().forEach(unit => {
                 if (unit !== gameObject && unit.getData('gridX') === dropGridX && unit.getData('gridY') === dropGridY) {
@@ -185,12 +305,11 @@
                 }
             });
 
-            // 同じレベル、同じ種類のキャラなら合体(マージ)する
             if (targetUnit && targetUnit.getData('type') === gameObject.getData('type') && targetUnit.getData('level') === gameObject.getData('level')) {
+                // 合体成功
                 const newLevel = gameObject.getData('level') + 1;
                 const type = gameObject.getData('type');
 
-                // 古い2体を消す
                 alliedUnits.remove(gameObject);
                 alliedUnits.remove(targetUnit);
                 gameObject.getData('text').destroy();
@@ -198,15 +317,22 @@
                 gameObject.destroy();
                 targetUnit.destroy();
 
-                // 新しいレベルのキャラをドロップ位置に出現させる
-                spawnAlliedUnit(this, newLevel, type, dropGridX, dropGridY, 10);
+                spawnAlliedUnit(gameObject.scene, newLevel, type, dropGridX, dropGridY, 10);
                 
-                score += 500 * newLevel;
-                scoreText.setText(`SCORE: ${score}`);
-            } else {
-                // 合体できなければ、そのマスに移動するだけ
+                // 行動完了！ターン消費
+                executeTurn(gameObject.scene);
+
+            } else if (!targetUnit) {
+                // 空きマスへの移動成功
                 gameObject.setData('gridX', dropGridX);
                 gameObject.setData('gridY', dropGridY);
+                returnAllUnitToPosition(gameObject);
+                
+                // 行動完了！ターン消費
+                executeTurn(gameObject.scene);
+
+            } else {
+                // 移動先に違うキャラがいて合体できない場合は無効（ターン消費なし）
                 returnAllUnitToPosition(gameObject);
             }
         }
@@ -218,42 +344,6 @@
             unit.y = worldY;
             unit.getData('text').x = worldX;
             unit.getData('text').y = worldY;
-        }
-
-        // --- 攻撃処理 ---
-        function handleAttack() {
-            const targets = enemyUnits.getChildren();
-            if (targets.length === 0) return;
-
-            // 味方全員から一斉射撃
-            alliedUnits.getChildren().forEach(unit => {
-                // 攻撃ビームを描画
-                const beam = this.add.rectangle(unit.x, unit.y, 8, 150, 0xffea00).setOrigin(0.5);
-                this.physics.add.existing(beam);
-                beam.body.setVelocityY(-1200); // 上に向かって飛ぶ
-
-                // ターゲットをランダムに選ぶ（簡易実装）
-                const targetEnemy = targets[Math.floor(Math.random() * targets.length)];
-                const damage = unit.getData('level') * 20; // レベルが高いほどダメージ大
-                
-                // ビームが届く頃合い(250ミリ秒後)にダメージ判定
-                this.time.delayedCall(250, () => {
-                    if (!targetEnemy.active) return;
-                    const currentHP = targetEnemy.getData('hp');
-                    const newHP = currentHP - damage;
-                    if (newHP <= 0) {
-                        targetEnemy.getData('text').destroy();
-                        targetEnemy.destroy();
-                    } else {
-                        targetEnemy.setData('hp', newHP);
-                        targetEnemy.getData('text').setText(`Lv${targetEnemy.getData('level')}\nHP:${newHP}`);
-                    }
-                    beam.destroy(); // ビーム消滅
-                }, null, this);
-            });
-
-            turn++;
-            turnText.setText(`TURN: ${turn} | NEXT ENEMY IN ${nextEnemyIn}`);
         }
     </script>
 </body>
