@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - 1vs1 Deathmatch Update</title>
+    <title>Merge Shoot RPG - GameOver Update</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -53,7 +53,6 @@
             alliedUnits = this.add.group();
             enemyUnits = this.add.group();
 
-            // ★変更：味方も敵も「真ん中の列（gridX: 3）」に1体だけスポーンさせる
             spawnAlliedUnit(this, 1, 'Hero', 3, 1, 1);
             spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 100);
 
@@ -67,6 +66,13 @@
             this.add.text(620, uiY, 'FIRE!', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
             
             attackBtn.on('pointerdown', () => executeTurn(this));
+
+            // ★追加（前回修正分）：画面を触った瞬間に音声ミュートを解除
+            this.input.on('pointerdown', () => {
+                if (this.sound.context.state === 'suspended') {
+                    this.sound.context.resume();
+                }
+            });
 
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
@@ -124,12 +130,33 @@
             return unit;
         }
 
-        function takeDamage(amount) {
+        // ★引数に scene を追加して、アニメーションと文字を使えるように変更
+        function takeDamage(amount, scene) {
             globalHP -= amount;
             if (globalHP < 0) globalHP = 0;
             hpBarFill.width = 380 * (globalHP / MAX_HP);
             hpText.setText(`${globalHP} / ${MAX_HP}`);
-            if (globalHP === 0) alert("GAME OVER! 味方のライフがゼロになった！");
+            
+            if (globalHP === 0) {
+                // ★アラートを廃止して、ヒーローが倒れる演出を追加
+                alliedUnits.getChildren().forEach(hero => {
+                    // 頭の上の「Lv1」という文字を非表示にして綺麗にする
+                    if (hero.getData('text')) hero.getData('text').setVisible(false);
+                    
+                    // ピョンと上に跳ねる（200ミリ秒で戻る）
+                    scene.tweens.add({ targets: hero, y: hero.y - 60, duration: 200, yoyo: true });
+                    // コテッと横に倒れる（90度回転）
+                    scene.tweens.add({ targets: hero, angle: 90, duration: 400 });
+                });
+                
+                // ★倒れた後（0.5秒後）に、画面中央に巨大な GAME OVER を出す
+                scene.time.delayedCall(500, () => {
+                    scene.add.text(360, 640, 'GAME OVER', { 
+                        fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', 
+                        stroke: '#000', strokeThickness: 8 
+                    }).setOrigin(0.5).setDepth(100);
+                });
+            }
         }
 
         function executeTurn(scene) {
@@ -217,7 +244,7 @@
         function moveEnemiesForward(scene, onComplete) {
             const enemies = enemyUnits.getChildren();
             let enemiesToDestroy = [];
-            let isGameOverThisTurn = false; // ★追加：このターンでゲームオーバーになるかのフラグ
+            let isGameOverThisTurn = false; 
 
             if(enemies.length === 0) { if(onComplete) onComplete(); return; }
 
@@ -227,31 +254,29 @@
                 enemy.setData('gridY', newY);
 
                 if (newY >= ENEMY_ROWS) {
-                    // ★変更：一番下を越えたら、自陣の2マス目（ALLIED_START_Y + 1マス分）に特攻する
                     const invasionY = ALLIED_START_Y + 1 * TILE_SIZE + TILE_SIZE / 2;
                     scene.tweens.add({ targets: enemy, y: invasionY, duration: 300 });
                     scene.tweens.add({ targets: enemy.getData('ui'), y: invasionY - 40, duration: 300 });
                     
-                    isGameOverThisTurn = true; // 1000ダメージ確定！
+                    isGameOverThisTurn = true; 
                     enemiesToDestroy.push(enemy);
                 } else {
-                    // 通常の前進
                     const worldY = ENEMY_START_Y + newY * TILE_SIZE + TILE_SIZE / 2;
                     scene.tweens.add({ targets: enemy, y: worldY, duration: 300 });
                     scene.tweens.add({ targets: enemy.getData('ui'), y: worldY - 40, duration: 300 });
                 }
             });
 
-            // ★変更：アニメーション（300ミリ秒）が終わるのを待ってからダメージ判定
             scene.time.delayedCall(350, () => { 
                 enemiesToDestroy.forEach(e => {
                     if (e.getData('ui')) e.getData('ui').forEach(ui => ui.destroy());
                     e.destroy();
                 });
                 
-                // ★追加：自陣に到達していれば、一気に1000ダメージを喰らう！
+                // ★特攻時に着弾音を鳴らして、sceneを渡して1000ダメージ！
                 if (isGameOverThisTurn) {
-                    takeDamage(1000);
+                    try { scene.sound.play('hit'); } catch(e) {}
+                    takeDamage(1000, scene);
                 }
                 
                 if(onComplete) onComplete(); 
