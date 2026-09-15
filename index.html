@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - GameOver Update</title>
+    <title>Merge Shoot RPG - Boss Zoom Update</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -67,7 +67,6 @@
             
             attackBtn.on('pointerdown', () => executeTurn(this));
 
-            // ★追加（前回修正分）：画面を触った瞬間に音声ミュートを解除
             this.input.on('pointerdown', () => {
                 if (this.sound.context.state === 'suspended') {
                     this.sound.context.resume();
@@ -130,7 +129,6 @@
             return unit;
         }
 
-        // ★引数に scene を追加して、アニメーションと文字を使えるように変更
         function takeDamage(amount, scene) {
             globalHP -= amount;
             if (globalHP < 0) globalHP = 0;
@@ -138,18 +136,12 @@
             hpText.setText(`${globalHP} / ${MAX_HP}`);
             
             if (globalHP === 0) {
-                // ★アラートを廃止して、ヒーローが倒れる演出を追加
                 alliedUnits.getChildren().forEach(hero => {
-                    // 頭の上の「Lv1」という文字を非表示にして綺麗にする
                     if (hero.getData('text')) hero.getData('text').setVisible(false);
-                    
-                    // ピョンと上に跳ねる（200ミリ秒で戻る）
                     scene.tweens.add({ targets: hero, y: hero.y - 60, duration: 200, yoyo: true });
-                    // コテッと横に倒れる（90度回転）
                     scene.tweens.add({ targets: hero, angle: 90, duration: 400 });
                 });
                 
-                // ★倒れた後（0.5秒後）に、画面中央に巨大な GAME OVER を出す
                 scene.time.delayedCall(500, () => {
                     scene.add.text(360, 640, 'GAME OVER', { 
                         fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', 
@@ -177,68 +169,105 @@
             
             if (allies.length === 0) { if(onComplete) onComplete(); return; }
 
-            allies.forEach(unit => {
-                const alliedCol = unit.getData('gridX');
-                const enemiesInSameCol = enemies.filter(enemy => enemy.active && enemy.getData('gridX') === alliedCol);
-                let targetEnemy = null;
-                if (enemiesInSameCol.length > 0) {
-                    enemiesInSameCol.sort((a, b) => b.getData('gridY') - a.getData('gridY'));
-                    targetEnemy = enemiesInSameCol[0];
-                }
+            const unit = allies[0];
+            const alliedCol = unit.getData('gridX');
+            const enemiesInSameCol = enemies.filter(enemy => enemy.active && enemy.getData('gridX') === alliedCol);
+            let targetEnemy = null;
+            if (enemiesInSameCol.length > 0) {
+                enemiesInSameCol.sort((a, b) => b.getData('gridY') - a.getData('gridY'));
+                targetEnemy = enemiesInSameCol[0];
+            }
 
-                let arrow;
-                try {
-                    arrow = scene.add.sprite(unit.x, unit.y, 'arrow').setOrigin(0.5);
-                    arrow.setDisplaySize(30, 70);
-                } catch(e) {
-                    arrow = scene.add.rectangle(unit.x, unit.y, 8, 80, 0xffea00).setOrigin(0.5);
-                }
+            let arrow;
+            try {
+                arrow = scene.add.sprite(unit.x, unit.y, 'arrow').setOrigin(0.5);
+                arrow.setDisplaySize(30, 70);
+            } catch(e) {
+                arrow = scene.add.rectangle(unit.x, unit.y, 8, 80, 0xffea00).setOrigin(0.5);
+            }
 
-                scene.physics.add.existing(arrow);
-                arrow.body.setVelocityY(-1200);
+            scene.physics.add.existing(arrow);
+            arrow.body.setVelocityY(-1200);
 
-                try { scene.sound.play('shoot'); } catch(e) {}
+            try { scene.sound.play('shoot'); } catch(e) {}
 
-                const damage = unit.getData('level') * 25; 
-                let hitDone = false;
+            const damage = unit.getData('level') * 25; 
+            let hitDone = false;
 
-                const updateEvent = scene.time.addEvent({
-                    delay: 20,
-                    loop: true,
-                    callback: () => {
-                        if (arrow.y < -50) {
+            const updateEvent = scene.time.addEvent({
+                delay: 20,
+                loop: true,
+                callback: () => {
+                    if (arrow.y < -50) {
+                        arrow.destroy();
+                        updateEvent.remove();
+                        if (onComplete) onComplete(); 
+                        return;
+                    }
+
+                    if (targetEnemy && targetEnemy.active && !hitDone) {
+                        if (arrow.y <= targetEnemy.y + TILE_SIZE/2) {
+                            hitDone = true;
+                            try { scene.sound.play('hit'); } catch(e) {}
+                            
+                            const currentHP = targetEnemy.getData('hp');
+                            const newHP = currentHP - damage;
+                            
                             arrow.destroy();
                             updateEvent.remove();
-                            return;
-                        }
 
-                        if (targetEnemy && targetEnemy.active && !hitDone) {
-                            if (arrow.y <= targetEnemy.y + TILE_SIZE/2) {
-                                hitDone = true;
+                            if (newHP <= 0) {
+                                // ★指示通り、ここで演出を入れてストップ（ゲーム進行フラグを呼ばない）
+                                targetEnemy.setData('hp', 0);
+                                const ui = targetEnemy.getData('ui');
+                                ui[0].setText(`0`);
+                                ui[2].width = 0;
+
+                                // 1. 横揺れ
+                                scene.tweens.add({
+                                    targets: targetEnemy,
+                                    x: targetEnemy.x + 15,
+                                    duration: 50,
+                                    yoyo: true,
+                                    repeat: 5,
+                                    onComplete: () => {
+                                        // 2. 暗転背景
+                                        const darkBg = scene.add.rectangle(360, 640, 720, 1280, 0x000000, 0.8).setDepth(40);
+                                        
+                                        targetEnemy.setDepth(50);
+                                        ui.forEach(u => u.setVisible(false));
+
+                                        // 3. ズームアップ
+                                        scene.tweens.add({
+                                            targets: targetEnemy,
+                                            scaleX: 3, scaleY: 3,
+                                            y: 640,
+                                            duration: 1000,
+                                            onComplete: () => {
+                                                // 4. セリフ表示（ここで演出終了、ゲームはストップしたまま）
+                                                scene.add.text(360, 850, "ククク…\n我の真の力を見よ！！", { 
+                                                    fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 
+                                                }).setOrigin(0.5).setDepth(60);
+                                            }
+                                        });
+                                    }
+                                });
+
+                            } else {
+                                targetEnemy.setData('hp', newHP);
+                                const ui = targetEnemy.getData('ui');
+                                const maxHp = targetEnemy.getData('maxHp');
+                                ui[0].setText(`${newHP}`);
+                                ui[2].width = 36 * (newHP / maxHp);
                                 
-                                try { scene.sound.play('hit'); } catch(e) {}
-                                
-                                const currentHP = targetEnemy.getData('hp');
-                                const newHP = currentHP - damage;
-                                if (newHP <= 0) {
-                                    targetEnemy.getData('ui').forEach(ui => ui.destroy());
-                                    targetEnemy.destroy();
-                                } else {
-                                    targetEnemy.setData('hp', newHP);
-                                    const ui = targetEnemy.getData('ui');
-                                    const maxHp = targetEnemy.getData('maxHp');
-                                    ui[0].setText(`${newHP}`);
-                                    ui[2].width = 36 * (newHP / maxHp);
-                                }
-                                arrow.destroy();
-                                updateEvent.remove();
+                                scene.time.delayedCall(500, () => {
+                                    if (onComplete) onComplete();
+                                });
                             }
                         }
                     }
-                });
+                }
             });
-
-            scene.time.delayedCall(800, () => { if(onComplete) onComplete(); });
         }
 
         function moveEnemiesForward(scene, onComplete) {
@@ -273,7 +302,6 @@
                     e.destroy();
                 });
                 
-                // ★特攻時に着弾音を鳴らして、sceneを渡して1000ダメージ！
                 if (isGameOverThisTurn) {
                     try { scene.sound.play('hit'); } catch(e) {}
                     takeDamage(1000, scene);
