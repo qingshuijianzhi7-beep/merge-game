@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Boss Zoom Max Fixed</title>
+    <title>Merge Shoot RPG - Boss Dialogue Update</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -235,7 +235,6 @@
                                         targetEnemy.setDepth(50);
                                         ui.forEach(u => u.setVisible(false));
 
-                                        // ★変更：画面幅ギリギリ（640px）まで巨大化し、ど真ん中（Y:640）に配置
                                         scene.tweens.add({
                                             targets: targetEnemy,
                                             x: 360,
@@ -244,10 +243,20 @@
                                             displayHeight: 640,
                                             duration: 1000,
                                             onComplete: () => {
-                                                // ★変更：画像が大きくなったので、セリフの位置をさらに下（Y:1050）に移動
-                                                scene.add.text(360, 1050, "（ここに司令官のセリフが入る）", { 
-                                                    fontSize: '32px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 
+                                                // ★追加：3秒ごとに自動でセリフが切り替わる連続タイマー演出
+                                                const dialogueText = scene.add.text(360, 1050, "あれ？僕誕生日だよね？？", { 
+                                                    fontSize: '36px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 
                                                 }).setOrigin(0.5).setDepth(60);
+
+                                                // 3秒後に2つ目のセリフへ
+                                                scene.time.delayedCall(3000, () => {
+                                                    dialogueText.setText("なんで攻撃されるの？？");
+
+                                                    // さらに3秒後に3つ目のセリフへ（ここでストップ）
+                                                    scene.time.delayedCall(3000, () => {
+                                                        dialogueText.setText("許さん。殺す！");
+                                                    });
+                                                });
                                             }
                                         });
                                     }
