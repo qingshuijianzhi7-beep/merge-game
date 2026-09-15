@@ -39,6 +39,8 @@
         function preload() {
             this.load.image('hero', 'hero.png');
             this.load.image('arrow', 'arrow.png');
+            // ★追加：エネミーの画像を読み込む
+            this.load.image('enemy', 'enemy.png');
         }
 
         function create() {
@@ -111,7 +113,11 @@
         function spawnEnemyUnit(scene, level, type, gridX, gridY, hp) {
             const worldX = START_X + gridX * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ENEMY_START_Y + gridY * TILE_SIZE + TILE_SIZE / 2;
-            const unit = scene.add.rectangle(worldX, worldY, TILE_SIZE - 10, TILE_SIZE - 10, 0xcc0000).setOrigin(0.5);
+            
+            // ★変更：赤い四角形をやめて、画像（スプライト）に書き換え！
+            const unit = scene.add.sprite(worldX, worldY, 'enemy').setOrigin(0.5);
+            unit.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
+            
             unit.setData({ isAllied: false, hp: hp, level: level, gridX: gridX, gridY: gridY, type: type });
             const text = scene.add.text(worldX, worldY, `Enemy\nHP:${hp}`, { fontSize: '18px', fill: '#fff', align: 'center', fontStyle: 'bold' }).setOrigin(0.5);
             unit.setData('text', text);
@@ -222,7 +228,7 @@
             });
 
             enemiesToDestroy.forEach(e => {
-                if (e.getData('text')) e.getData('text').destroy(); // ← ここを修正しました！
+                if (e.getData('text')) e.getData('text').destroy();
                 e.destroy();
             });
 
