@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Boss Zoom Fixed</title>
+    <title>Merge Shoot RPG - Boss Zoom Max Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -67,7 +67,6 @@
             
             attackBtn.on('pointerdown', () => executeTurn(this));
 
-            // ★追加：画面のどこかを触ったり離したりした瞬間にも音のブロックを解除
             this.input.on('pointerdown', () => {
                 if (this.sound.context.state === 'suspended') this.sound.context.resume();
             });
@@ -236,17 +235,17 @@
                                         targetEnemy.setDepth(50);
                                         ui.forEach(u => u.setVisible(false));
 
-                                        // ★変更：画面のど真ん中（x:360）に移動しつつ、スマホの横幅に収まるサイズ（400px）に拡大
+                                        // ★変更：画面幅ギリギリ（640px）まで巨大化し、ど真ん中（Y:640）に配置
                                         scene.tweens.add({
                                             targets: targetEnemy,
                                             x: 360,
                                             y: 640,
-                                            displayWidth: 400,
-                                            displayHeight: 400,
+                                            displayWidth: 640,
+                                            displayHeight: 640,
                                             duration: 1000,
                                             onComplete: () => {
-                                                // ★変更：セリフは仮置き。画像の下（y:900）に表示
-                                                scene.add.text(360, 900, "（ここに司令官のセリフが入る）", { 
+                                                // ★変更：画像が大きくなったので、セリフの位置をさらに下（Y:1050）に移動
+                                                scene.add.text(360, 1050, "（ここに司令官のセリフが入る）", { 
                                                     fontSize: '32px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 
                                                 }).setOrigin(0.5).setDepth(60);
                                             }
@@ -327,8 +326,6 @@
             gameObject.getData('text').setDepth(0);
             
             const scene = gameObject.scene;
-
-            // ★追加：指を離してドラッグ終了した瞬間にも、強制的にミュートを解除する
             if (scene.sound.context.state === 'suspended') scene.sound.context.resume();
 
             if (isTurnExecuting) { returnAllUnitToPosition(gameObject); return; }
@@ -380,4 +377,4 @@
         }
     </script>
 </body>
-</html>ｖ
+</html>
