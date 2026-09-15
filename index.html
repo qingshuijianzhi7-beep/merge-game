@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Arrow Image Fixed</title>
+    <title>Merge Shoot RPG - Update</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -39,8 +39,10 @@
         function preload() {
             this.load.image('hero', 'hero.png');
             this.load.image('arrow', 'arrow.png');
-            // ★追加：エネミーの画像を読み込む
             this.load.image('enemy', 'enemy.png');
+            // ★音データの読み込み
+            this.load.audio('shoot', 'shoot.mp3');
+            this.load.audio('hit', 'hit.mp3');
         }
 
         function create() {
@@ -114,13 +116,20 @@
             const worldX = START_X + gridX * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ENEMY_START_Y + gridY * TILE_SIZE + TILE_SIZE / 2;
             
-            // ★変更：赤い四角形をやめて、画像（スプライト）に書き換え！
+            // ★画像を適用
             const unit = scene.add.sprite(worldX, worldY, 'enemy').setOrigin(0.5);
             unit.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
             
-            unit.setData({ isAllied: false, hp: hp, level: level, gridX: gridX, gridY: gridY, type: type });
-            const text = scene.add.text(worldX, worldY, `Enemy\nHP:${hp}`, { fontSize: '18px', fill: '#fff', align: 'center', fontStyle: 'bold' }).setOrigin(0.5);
-            unit.setData('text', text);
+            // maxHpもデータとして持たせる
+            unit.setData({ isAllied: false, hp: hp, maxHp: hp, level: level, gridX: gridX, gridY: gridY, type: type });
+            
+            // ★文字を消して、頭上に「数字」「背景バー」「赤いバー」を生成
+            const hpTxt = scene.add.text(worldX - 12, worldY - 40, `${hp}`, { fontSize: '14px', fill: '#fff', fontStyle: 'bold' }).setOrigin(1, 0.5);
+            const bgBar = scene.add.rectangle(worldX - 8, worldY - 40, 36, 6, 0x555555).setOrigin(0, 0.5);
+            const hpBar = scene.add.rectangle(worldX - 8, worldY - 40, 36, 6, 0xff0000).setOrigin(0, 0.5);
+            
+            // バーたちをセット（配列）にしてキャラのデータに結びつける
+            unit.setData('ui', [hpTxt, bgBar, hpBar]);
             enemyUnits.add(unit);
             return unit;
         }
@@ -171,6 +180,9 @@
                 scene.physics.add.existing(arrow);
                 arrow.body.setVelocityY(-1200);
 
+                // ★発射音を鳴らす
+                try { scene.sound.play('shoot'); } catch(e) {}
+
                 const damage = unit.getData('level') * 25; 
                 let hitDone = false;
 
@@ -187,14 +199,23 @@
                         if (targetEnemy && targetEnemy.active && !hitDone) {
                             if (arrow.y <= targetEnemy.y + TILE_SIZE/2) {
                                 hitDone = true;
+                                
+                                // ★着弾音を鳴らす
+                                try { scene.sound.play('hit'); } catch(e) {}
+                                
                                 const currentHP = targetEnemy.getData('hp');
                                 const newHP = currentHP - damage;
                                 if (newHP <= 0) {
-                                    targetEnemy.getData('text').destroy();
+                                    // 敵が死んだらUIパーツも全部消す
+                                    targetEnemy.getData('ui').forEach(ui => ui.destroy());
                                     targetEnemy.destroy();
                                 } else {
                                     targetEnemy.setData('hp', newHP);
-                                    targetEnemy.getData('text').setText(`Enemy\nHP:${newHP}`);
+                                    // ★UIパーツを更新する（数字書き換えと、赤いバーの長さを計算）
+                                    const ui = targetEnemy.getData('ui');
+                                    const maxHp = targetEnemy.getData('maxHp');
+                                    ui[0].setText(`${newHP}`);
+                                    ui[2].width = 36 * (newHP / maxHp);
                                 }
                                 arrow.destroy();
                                 updateEvent.remove();
@@ -223,12 +244,15 @@
                     takeDamage(enemy.getData('hp'));
                     enemiesToDestroy.push(enemy);
                 } else {
-                    scene.tweens.add({ targets: [enemy, enemy.getData('text')], y: worldY, duration: 300 });
+                    // ★敵本体と、UIパーツの配列を両方一緒に前へ動かす
+                    scene.tweens.add({ targets: enemy, y: worldY, duration: 300 });
+                    scene.tweens.add({ targets: enemy.getData('ui'), y: worldY - 40, duration: 300 });
                 }
             });
 
             enemiesToDestroy.forEach(e => {
-                if (e.getData('text')) e.getData('text').destroy();
+                // 画面端到達時もUIパーツを消す
+                if (e.getData('ui')) e.getData('ui').forEach(ui => ui.destroy());
                 e.destroy();
             });
 
