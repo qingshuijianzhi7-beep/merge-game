@@ -24,6 +24,13 @@
 
         const game = new Phaser.Game(config);
 
+        // 【修正1】ブラウザの音声ブロックを最初のタッチ（ドラッグ含む）で確実に解除する
+        document.addEventListener('pointerdown', () => {
+            if (game.sound && game.sound.context && game.sound.context.state === 'suspended') {
+                game.sound.context.resume();
+            }
+        }, { once: true });
+
         let alliedUnits, enemyUnits;
         let turnText, turn = 1, isTurnExecuting = false;
         
@@ -42,7 +49,7 @@
             this.load.image('enemy', 'enemy.png');
             this.load.audio('shoot', 'shoot.mp3');
             this.load.audio('hit', 'hit.mp3');
-            this.load.audio('crowned', 'crowned.mp3'); // BGMを追加
+            this.load.audio('crowned', 'crowned.mp3');
         }
 
         function create() {
@@ -68,15 +75,13 @@
             
             attackBtn.on('pointerdown', () => executeTurn(this));
 
-            this.input.on('pointerdown', () => {
-                if (this.sound.context.state === 'suspended') this.sound.context.resume();
-            });
-            this.input.on('pointerup', () => {
-                if (this.sound.context.state === 'suspended') this.sound.context.resume();
-            });
-
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
+            
+            // ドラッグ開始時にも念のため音声ロック解除をフック
+            this.input.on('dragstart', () => {
+                if (this.sound.context.state === 'suspended') this.sound.context.resume();
+            });
         }
 
         function update() {}
@@ -254,30 +259,50 @@
                                                     scene.time.delayedCall(3000, () => {
                                                         dialogueText.setText("許さん。殺す！");
                                                         
-                                                        // 追加実装：セリフ終了後の座標移動と光の演出
                                                         scene.time.delayedCall(2000, () => {
-                                                            dialogueText.setVisible(false); // セリフを消す
+                                                            dialogueText.setVisible(false);
 
+                                                            // 【修正2】移動開始と同時にBGMを再生する
+                                                            try { scene.sound.play('crowned'); } catch(e) {}
+                                                            
                                                             // 右上へ座標移動して人物を真ん中に
                                                             scene.tweens.add({
                                                                 targets: targetEnemy,
-                                                                x: targetEnemy.x + 120, // 人物の位置に合わせて右にずらす（調整可）
-                                                                y: targetEnemy.y - 180, // 人物の位置に合わせて上にずらす（調整可）
+                                                                x: targetEnemy.x + 120, // 人物の位置に合わせて右にずらす
+                                                                y: targetEnemy.y - 180, // 人物の位置に合わせて上にずらす
                                                                 duration: 1500,
-                                                                ease: 'Power2',
-                                                                onComplete: () => {
-                                                                    // 移動完了後にCrowned再生
-                                                                    try { scene.sound.play('crowned'); } catch(e) {}
-                                                                    
-                                                                    // 光（白い円）が拡大して覆い尽くす
-                                                                    const light = scene.add.circle(360, 640, 10, 0xffffff).setDepth(70);
-                                                                    scene.tweens.add({
-                                                                        targets: light,
-                                                                        scale: 150, // 画面全体を覆うまで拡大
-                                                                        duration: 3000,
-                                                                        ease: 'Cubic.easeInOut'
-                                                                    });
-                                                                }
+                                                                ease: 'Power2'
+                                                            });
+
+                                                            // 【修正3-1】曲開始から2.5秒後：画像がだんだん白くなる
+                                                            scene.time.delayedCall(2500, () => {
+                                                                // 同じ位置に同じ画像を重ねて、白塗りにする
+                                                                const whiteBoss = scene.add.sprite(targetEnemy.x, targetEnemy.y, 'enemy').setOrigin(0.5);
+                                                                whiteBoss.setDisplaySize(targetEnemy.displayWidth, targetEnemy.displayHeight);
+                                                                whiteBoss.setTintFill(0xffffff); // 画像を純白に塗りつぶす
+                                                                whiteBoss.setAlpha(0);
+                                                                whiteBoss.setDepth(targetEnemy.depth + 1);
+
+                                                                scene.tweens.add({
+                                                                    targets: whiteBoss,
+                                                                    alpha: 1, // 1秒かけて真っ白になる
+                                                                    duration: 1000,
+                                                                    ease: 'Linear'
+                                                                });
+                                                            });
+
+                                                            // 【修正3-2】曲開始から3.5秒後：画面全体が光に包まれる
+                                                            scene.time.delayedCall(3500, () => {
+                                                                const screenLight = scene.add.rectangle(360, 640, 720, 1280, 0xffffff).setOrigin(0.5);
+                                                                screenLight.setAlpha(0);
+                                                                screenLight.setDepth(100); // 一番手前に配置
+
+                                                                scene.tweens.add({
+                                                                    targets: screenLight,
+                                                                    alpha: 1, // 光が画面を覆い尽くす
+                                                                    duration: 1500,
+                                                                    ease: 'Power2'
+                                                                });
                                                             });
                                                         });
                                                     });
@@ -346,10 +371,6 @@
         }
 
         function handleDrag(pointer, gameObject, dragX, dragY) {
-            const scene = gameObject.scene;
-            // 追加：ドラッグ時にもAudioContextを確実に再開させる
-            if (scene.sound.context.state === 'suspended') scene.sound.context.resume();
-
             if (isTurnExecuting) return;
             gameObject.x = dragX;
             gameObject.y = dragY;
@@ -364,7 +385,6 @@
             gameObject.getData('text').setDepth(0);
             
             const scene = gameObject.scene;
-            if (scene.sound.context.state === 'suspended') scene.sound.context.resume();
 
             if (isTurnExecuting) { returnAllUnitToPosition(gameObject); return; }
 
