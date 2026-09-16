@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Boss Second Form Update</title>
+    <title>Merge Shoot RPG - Boss Roar Update</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -47,7 +47,8 @@
             this.load.image('hero', 'hero.png');
             this.load.image('arrow', 'arrow.png');
             this.load.image('enemy', 'enemy.png');
-            this.load.image('enemy2', 'enemy2.png'); // ★第二形態の画像を追加
+            this.load.image('enemy2', 'enemy2.png'); // 第二形態（通常・口閉じ）
+            this.load.image('enemy2_roar', 'enemy2_roar.png'); // ★叫んでいる（口を開けている）画像を追加
             this.load.audio('shoot', 'shoot.mp3');
             this.load.audio('hit', 'hit.mp3');
             this.load.audio('crowned', 'crowned.mp3');
@@ -298,16 +299,14 @@
                                                             screenLight.setAlpha(0);
                                                             screenLight.setDepth(100);
 
-                                                            scene.time.delayedCall(3500, () => {
-                                                                scene.tweens.add({
+                                                            scene.tweens.add({
                                                                     targets: screenLight,
                                                                     alpha: 1,
                                                                     duration: 1500,
                                                                     ease: 'Power2'
-                                                                });
                                                             });
 
-                                                            // ★4.5秒後：光で完全に隠れている間に、ボスの画像を第二形態（enemy2）に切り替える
+                                                            // 4.5秒後：光で完全に隠れている間に第二形態（enemy2）を配置
                                                             let secondFormBoss;
                                                             scene.time.delayedCall(4500, () => {
                                                                 targetEnemy.setVisible(false);
@@ -318,24 +317,27 @@
                                                                 secondFormBoss.setDepth(50);
                                                             });
 
-                                                            // ★6.0秒後：徐々に光が薄くなり始める（9秒で光が完全にゼロに）
+                                                            // 6.0秒後：光がフェードアウト開始（9秒で完全に晴れる）
                                                             scene.time.delayedCall(6000, () => {
                                                                 scene.tweens.add({
                                                                     targets: screenLight,
                                                                     alpha: 0,
-                                                                    duration: 3000, // 6秒から9秒にかけての3秒間でフェードアウト
+                                                                    duration: 3000,
                                                                     ease: 'Linear'
                                                                 });
                                                             });
 
-                                                            // ★9.0秒後：姿があらわになった敵が口を開けて1吠え！咆哮アニメーション演出
+                                                            // ★9.0秒後：咆哮の瞬間に叫び画像へ切り替え＆アクション演出
                                                             scene.time.delayedCall(9000, () => {
                                                                 if (!secondFormBoss) return;
 
-                                                                // 1. 画面全体の激しい揺れ（カメラシェイク）
+                                                                // 1. テクスチャを叫び画像（enemy2_roar）に即時切り替え！
+                                                                secondFormBoss.setTexture('enemy2_roar');
+
+                                                                // 2. 画面全体の激しい揺れ（カメラシェイク）
                                                                 scene.cameras.main.shake(800, 0.025);
 
-                                                                // 2. 口元からの咆哮衝撃波リングが外側にバッと広がる
+                                                                // 3. 口元からの咆哮衝撃波リング
                                                                 const shockwave = scene.add.circle(secondFormBoss.x, secondFormBoss.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
                                                                 scene.tweens.add({
                                                                     targets: shockwave,
@@ -346,7 +348,7 @@
                                                                     onComplete: () => shockwave.destroy()
                                                                 });
 
-                                                                // 3. ボス本体の咆哮アニメーション（沈み込み → グワッと急激に拡大＆反動）
+                                                                // 4. ボス本体の咆哮アニメーション（沈み込み → ガバッと拡大）
                                                                 scene.tweens.add({
                                                                     targets: secondFormBoss,
                                                                     scaleX: 1.15,
@@ -355,7 +357,11 @@
                                                                     duration: 150,
                                                                     yoyo: true,
                                                                     repeat: 2,
-                                                                    ease: 'Quad.easeInOut'
+                                                                    ease: 'Quad.easeInOut',
+                                                                    onComplete: () => {
+                                                                        // 咆哮が終わったら（反動が収まったら）、元の第二形態画像に戻す
+                                                                        secondFormBoss.setTexture('enemy2');
+                                                                    }
                                                                 });
                                                             });
                                                         });
