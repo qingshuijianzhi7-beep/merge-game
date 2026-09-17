@@ -24,7 +24,6 @@
 
         const game = new Phaser.Game(config);
 
-        // ★ブラウザの音声ブロックを最初のタッチで強制解除する処理
         document.addEventListener('pointerdown', () => {
             if (game.sound && game.sound.context && game.sound.context.state === 'suspended') {
                 game.sound.context.resume();
@@ -192,7 +191,6 @@
             scene.physics.add.existing(arrow);
             arrow.body.setVelocityY(-1200);
 
-            // ★ここで攻撃音が鳴る（Fireボタン押下、またはドラッグ移動後の確定時のみ呼ばれます）
             try { scene.sound.play('shoot'); } catch(e) {}
 
             const damage = unit.getData('level') * 25; 
@@ -259,77 +257,110 @@
                                                         scene.time.delayedCall(2000, () => {
                                                             dialogueText.setVisible(false);
 
-                                                            // ★1. 音楽開始と【同時】にエネミーを白くする
                                                             try { scene.sound.play('crowned'); } catch(e) {}
-                                                            targetEnemy.setTintFill(0xffffff); // シルエットを白化
+
+                                                            // ★修正1: シルエット急変防止（ダミーを重ねてジワジワ白くする）
+                                                            const whiteSilhouette = scene.add.sprite(targetEnemy.x, targetEnemy.y, 'enemy').setOrigin(0.5);
+                                                            whiteSilhouette.setDisplaySize(targetEnemy.displayWidth, targetEnemy.displayHeight);
+                                                            whiteSilhouette.setTintFill(0xffffff);
+                                                            whiteSilhouette.setAlpha(0); // 最初は透明
+                                                            whiteSilhouette.setDepth(targetEnemy.depth + 1);
                                                             
+                                                            // 移動アニメーション（本体と白いダミー両方）
                                                             const targetBossX = targetEnemy.x + 120;
                                                             const targetBossY = targetEnemy.y - 180;
                                                             scene.tweens.add({ targets: targetEnemy, x: targetBossX, y: targetBossY, duration: 1500, ease: 'Power2' });
+                                                            scene.tweens.add({ targets: whiteSilhouette, x: targetBossX, y: targetBossY, duration: 1500, ease: 'Power2' });
 
-                                                            // ★2. 音楽開始から【1.5秒後】に画面全体が光に包まれる
-                                                            scene.time.delayedCall(1500, () => {
-                                                                const screenLight = scene.add.rectangle(360, 640, 720, 1280, 0xffffff).setOrigin(0.5);
-                                                                screenLight.setAlpha(0);
-                                                                screenLight.setDepth(100);
+                                                            // 画面全体のフラッシュ
+                                                            const screenLight = scene.add.rectangle(360, 640, 720, 1280, 0xffffff).setOrigin(0.5);
+                                                            screenLight.setAlpha(0);
+                                                            screenLight.setDepth(100);
 
-                                                                scene.tweens.add({
-                                                                    targets: screenLight,
-                                                                    alpha: 1,
-                                                                    duration: 1500,
-                                                                    ease: 'Power2',
-                                                                    onComplete: () => {
-                                                                        // 光で隠れている間に第二形態を配置
-                                                                        targetEnemy.setVisible(false);
-                                                                        const secondFormBoss = scene.add.sprite(360, 560, 'enemy2').setOrigin(0.5);
-                                                                        secondFormBoss.setDisplaySize(680, 680);
-                                                                        secondFormBoss.setDepth(50);
+                                                            // ★シルエットと画面周りが【同時に】白くなっていく
+                                                            scene.tweens.add({
+                                                                targets: [whiteSilhouette, screenLight],
+                                                                alpha: 1, // 完全に白くする
+                                                                duration: 1500,
+                                                                ease: 'Power2',
+                                                                onComplete: () => {
+                                                                    // 光に包まれた裏で変身させる
+                                                                    targetEnemy.setVisible(false);
+                                                                    whiteSilhouette.destroy();
 
-                                                                        // 光をフェードアウト
-                                                                        scene.time.delayedCall(1000, () => {
-                                                                            scene.tweens.add({
-                                                                                targets: screenLight,
-                                                                                alpha: 0,
-                                                                                duration: 2500,
-                                                                                ease: 'Linear',
-                                                                                onComplete: () => {
-                                                                                    
-                                                                                    // ★3. 咆哮演出（テクスチャ変更＆揺れ）
-                                                                                    secondFormBoss.setTexture('enemy2_roar');
-                                                                                    scene.cameras.main.shake(800, 0.025);
+                                                                    const secondFormBoss = scene.add.sprite(360, 560, 'enemy2').setOrigin(0.5);
+                                                                    secondFormBoss.setDisplaySize(680, 680);
+                                                                    secondFormBoss.setDepth(50);
 
-                                                                                    // 衝撃波
-                                                                                    const shockwave = scene.add.circle(secondFormBoss.x, secondFormBoss.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
-                                                                                    scene.tweens.add({ targets: shockwave, radius: 400, alpha: 0, duration: 700, ease: 'Cubic.easeOut', onComplete: () => shockwave.destroy() });
+                                                                    // 光が晴れて第二形態登場
+                                                                    scene.time.delayedCall(1000, () => {
+                                                                        scene.tweens.add({
+                                                                            targets: screenLight,
+                                                                            alpha: 0,
+                                                                            duration: 2500,
+                                                                            ease: 'Linear',
+                                                                            onComplete: () => {
+                                                                                
+                                                                                // ★修正2: 咆哮アクション
+                                                                                secondFormBoss.setTexture('enemy2_roar');
+                                                                                scene.cameras.main.shake(800, 0.025);
 
-                                                                                    // ★4. ゆっくり2秒かけてズームし、1秒で戻る（反復なし）
-                                                                                    scene.tweens.add({
-                                                                                        targets: secondFormBoss,
-                                                                                        displayWidth: 780, // 大きく開く
-                                                                                        displayHeight: 820,
-                                                                                        y: secondFormBoss.y - 25,
-                                                                                        duration: 2000, // 2秒かける
-                                                                                        ease: 'Quad.easeOut',
-                                                                                        onComplete: () => {
-                                                                                            // 開ききったら1秒で元に戻る
-                                                                                            scene.tweens.add({
-                                                                                                targets: secondFormBoss,
-                                                                                                displayWidth: 680,
-                                                                                                displayHeight: 680,
-                                                                                                y: secondFormBoss.y + 25,
-                                                                                                duration: 1000, // 1秒かける
-                                                                                                ease: 'Quad.easeIn',
-                                                                                                onComplete: () => {
-                                                                                                    secondFormBoss.setTexture('enemy2'); // 最後に口を閉じた画像に戻す
-                                                                                                }
-                                                                                            });
-                                                                                        }
-                                                                                    });
-                                                                                }
-                                                                            });
+                                                                                const shockwave = scene.add.circle(secondFormBoss.x, secondFormBoss.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
+                                                                                scene.tweens.add({ 
+                                                                                    targets: shockwave, 
+                                                                                    radius: 400, 
+                                                                                    alpha: 0, 
+                                                                                    duration: 700, 
+                                                                                    ease: 'Cubic.easeOut', 
+                                                                                    onComplete: () => {
+                                                                                        shockwave.destroy();
+                                                                                        
+                                                                                        // 衝撃波後、ズームせずにすぐ口を閉じる
+                                                                                        secondFormBoss.setTexture('enemy2');
+                                                                                        
+                                                                                        // ★修正3: 潰れてからジャンプ、小さくなって着地
+                                                                                        const baseW = 680, baseH = 680, baseY = 560;
+
+                                                                                        // 3-A. 少し潰れる（力を溜める）
+                                                                                        scene.tweens.add({
+                                                                                            targets: secondFormBoss,
+                                                                                            displayHeight: baseH * 0.75,
+                                                                                            displayWidth: baseW * 1.15,
+                                                                                            y: baseY + 85, // 地面（底）が浮かないように座標を下げる
+                                                                                            duration: 200,
+                                                                                            ease: 'Sine.easeOut',
+                                                                                            onComplete: () => {
+                                                                                                
+                                                                                                // 3-B. はずみで画面上部に飛んで消える
+                                                                                                scene.tweens.add({
+                                                                                                    targets: secondFormBoss,
+                                                                                                    displayHeight: baseH * 1.1,
+                                                                                                    displayWidth: baseW * 0.9,
+                                                                                                    y: -500, // 画面外（上）へ飛ぶ
+                                                                                                    duration: 350,
+                                                                                                    ease: 'Cubic.easeIn',
+                                                                                                    onComplete: () => {
+                                                                                                        
+                                                                                                        // 3-C. 少し小さくなって画面上部から現れる
+                                                                                                        secondFormBoss.setDisplaySize(500, 500); // 縮小！
+                                                                                                        
+                                                                                                        // 3-D. ドスンと着地
+                                                                                                        scene.tweens.add({
+                                                                                                            targets: secondFormBoss,
+                                                                                                            y: 560, // 元の高さへ落ちてくる
+                                                                                                            duration: 600,
+                                                                                                            ease: 'Bounce.easeOut'
+                                                                                                        });
+                                                                                                    }
+                                                                                                });
+                                                                                            }
+                                                                                        });
+                                                                                    }
+                                                                                });
+                                                                            }
                                                                         });
-                                                                    }
-                                                                });
+                                                                    });
+                                                                }
                                                             });
                                                         });
                                                     });
@@ -419,7 +450,6 @@
             const oldX = gameObject.getData('gridX');
             const oldY = gameObject.getData('gridY');
 
-            // ドラッグしたけど元の位置のままだった場合は攻撃（ターン進行）させない
             if (dropGridX < 0 || dropGridX >= COLS || dropGridY < 0 || dropGridY >= ALLIED_ROWS || (dropGridX === oldX && dropGridY === oldY)) {
                 returnAllUnitToPosition(gameObject); return;
             }
@@ -431,7 +461,6 @@
                 }
             });
 
-            // 違う位置に移動、またはマージが成功した場合に executeTurn() が呼ばれ、攻撃音が鳴る
             if (targetUnit && targetUnit.getData('type') === gameObject.getData('type') && targetUnit.getData('level') === gameObject.getData('level')) {
                 const newLevel = gameObject.getData('level') + 1;
                 const type = gameObject.getData('type');
