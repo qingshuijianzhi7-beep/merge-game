@@ -51,7 +51,6 @@
         }
 
         function create() {
-            // ★画面のどこかに触れた瞬間に、音は鳴らさず「オーディオのミュート制限」だけを解除する
             this.input.on('pointerdown', () => {
                 if (this.sound.context && this.sound.context.state === 'suspended') {
                     this.sound.context.resume();
@@ -196,7 +195,6 @@
             scene.physics.add.existing(arrow);
             arrow.body.setVelocityY(-1200);
 
-            // ★キャラクターの位置が変わって矢を撃つ瞬間に確実に音が鳴ります
             try { scene.sound.play('shoot'); } catch(e) {}
 
             const damage = unit.getData('level') * 25; 
@@ -238,6 +236,7 @@
                                     repeat: 5,
                                     onComplete: () => {
                                         
+                                        // ★確実に背面レイヤー（depth40）に暗転背景を生成
                                         darkBgOverlay = scene.add.rectangle(360, 640, 720, 1280, 0x000000, 0.8).setDepth(40);
                                         
                                         targetEnemy.setDepth(50);
@@ -292,9 +291,8 @@
 
                                                                     const secondFormBoss = scene.add.sprite(360, 560, 'enemy2').setOrigin(0.5);
                                                                     secondFormBoss.setDisplaySize(680, 680);
+                                                                    // ★エネミー本体のレイヤーは暗転(40)より手前の50に固定。半透明化(BlendMode)は削除。
                                                                     secondFormBoss.setDepth(50);
-                                                                    // ★重要: 画像の黒い背景を透明化する処理
-                                                                    secondFormBoss.setBlendMode(Phaser.BlendModes.SCREEN);
 
                                                                     scene.time.delayedCall(1000, () => {
                                                                         scene.tweens.add({
@@ -341,6 +339,7 @@
                                                                                                     ease: 'Cubic.easeIn',
                                                                                                     onComplete: () => {
                                                                                                         
+                                                                                                        // ★完全に画面外へ飛んだタイミングで暗黒背景を破棄
                                                                                                         if (darkBgOverlay) {
                                                                                                             darkBgOverlay.destroy();
                                                                                                             darkBgOverlay = null;
