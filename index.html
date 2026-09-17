@@ -51,6 +51,7 @@
             this.load.audio('shoot', 'shoot.mp3');
             this.load.audio('hit', 'hit.mp3');
             this.load.audio('crowned', 'crowned.mp3');
+            this.load.audio('roar', 'roar.mp3'); 
         }
 
         function create() {
@@ -295,26 +296,25 @@
                                                                             ease: 'Linear',
                                                                             onComplete: () => {
                                                                                 
-                                                                                // ★咆哮アクション（重く、長く修正）
                                                                                 secondFormBoss.setTexture('enemy2_roar');
-                                                                                scene.cameras.main.shake(1500, 0.02); // 揺れ時間を延長
+                                                                                try { scene.sound.play('roar'); } catch(e) {}
+                                                                                
+                                                                                scene.cameras.main.shake(1500, 0.02);
 
                                                                                 const shockwave = scene.add.circle(secondFormBoss.x, secondFormBoss.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
                                                                                 scene.tweens.add({ 
                                                                                     targets: shockwave, 
-                                                                                    radius: 500, // 広がりを大きく
+                                                                                    radius: 500,
                                                                                     alpha: 0, 
-                                                                                    duration: 1500, // 700ms -> 1500ms（雄叫びを長く）
+                                                                                    duration: 1500, 
                                                                                     ease: 'Cubic.easeOut', 
                                                                                     onComplete: () => {
                                                                                         shockwave.destroy();
-                                                                                        
-                                                                                        // 衝撃波後、すぐ口を閉じる
                                                                                         secondFormBoss.setTexture('enemy2');
                                                                                         
                                                                                         const baseW = 680, baseH = 680, baseY = 560;
 
-                                                                                        // ★3-A. ゆっくり潰れる（力を溜める時間を200ms -> 700msへ延長）
+                                                                                        // ゆっくり潰れる
                                                                                         scene.tweens.add({
                                                                                             targets: secondFormBoss,
                                                                                             displayHeight: baseH * 0.75,
@@ -324,27 +324,44 @@
                                                                                             ease: 'Sine.easeInOut',
                                                                                             onComplete: () => {
                                                                                                 
-                                                                                                // ★3-B. 画面上部に飛ぶ（ジャンプ速度を重くし、飛ぶ前に300msの「タメ」を追加）
+                                                                                                // 画面上部に飛ぶ
                                                                                                 scene.tweens.add({
                                                                                                     targets: secondFormBoss,
                                                                                                     displayHeight: baseH * 1.1,
                                                                                                     displayWidth: baseW * 0.9,
                                                                                                     y: -500, 
-                                                                                                    duration: 700, // 350ms -> 700ms
-                                                                                                    delay: 300,    // 一瞬静止してタメる
+                                                                                                    duration: 700,
+                                                                                                    delay: 300,
                                                                                                     ease: 'Cubic.easeIn',
                                                                                                     onComplete: () => {
                                                                                                         
-                                                                                                        // 3-C. 少し小さくなる
+                                                                                                        if (darkBg) darkBg.destroy();
+
                                                                                                         secondFormBoss.setDisplaySize(500, 500); 
                                                                                                         
-                                                                                                        // ★3-D. ドスンと着地（落ちる時間を長くし、画面外で500msの「滞空時間」を追加）
+                                                                                                        // ★修正ポイント：ゆっくりと静かに降臨（Bounceをやめ、時間を長く、イージングを滑らかに）
                                                                                                         scene.tweens.add({
                                                                                                             targets: secondFormBoss,
                                                                                                             y: 560, 
-                                                                                                            duration: 1200, // 600ms -> 1200ms
-                                                                                                            delay: 500,     // 画面外にしばらく消える
-                                                                                                            ease: 'Bounce.easeOut'
+                                                                                                            duration: 2500, // 1200ms -> 2500ms（ゆっくり落ちてくる）
+                                                                                                            delay: 500, 
+                                                                                                            ease: 'Sine.easeInOut', // バウンドせず、スーッと静止する
+                                                                                                            onComplete: () => {
+                                                                                                                // 着地直後のHPゲージ演出
+                                                                                                                const hpBarWidth = 680;
+                                                                                                                const bossHpBg = scene.add.rectangle(20, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(100);
+                                                                                                                const bossHpFill = scene.add.rectangle(20, 60, 0, 24, 0xff0000).setOrigin(0, 0.5).setDepth(101);
+                                                                                                                const bossNameText = scene.add.text(20, 25, "AWAKENED BOSS", { 
+                                                                                                                    fontSize: '22px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 3 
+                                                                                                                }).setDepth(100);
+
+                                                                                                                scene.tweens.add({
+                                                                                                                    targets: bossHpFill,
+                                                                                                                    width: hpBarWidth,
+                                                                                                                    duration: 1500,
+                                                                                                                    ease: 'Power3.easeOut'
+                                                                                                                });
+                                                                                                            }
                                                                                                         });
                                                                                                     }
                                                                                                 });
