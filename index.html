@@ -259,32 +259,27 @@
 
                                                             try { scene.sound.play('crowned'); } catch(e) {}
 
-                                                            // ★修正1: シルエット急変防止（ダミーを重ねてジワジワ白くする）
                                                             const whiteSilhouette = scene.add.sprite(targetEnemy.x, targetEnemy.y, 'enemy').setOrigin(0.5);
                                                             whiteSilhouette.setDisplaySize(targetEnemy.displayWidth, targetEnemy.displayHeight);
                                                             whiteSilhouette.setTintFill(0xffffff);
-                                                            whiteSilhouette.setAlpha(0); // 最初は透明
+                                                            whiteSilhouette.setAlpha(0); 
                                                             whiteSilhouette.setDepth(targetEnemy.depth + 1);
                                                             
-                                                            // 移動アニメーション（本体と白いダミー両方）
                                                             const targetBossX = targetEnemy.x + 120;
                                                             const targetBossY = targetEnemy.y - 180;
                                                             scene.tweens.add({ targets: targetEnemy, x: targetBossX, y: targetBossY, duration: 1500, ease: 'Power2' });
                                                             scene.tweens.add({ targets: whiteSilhouette, x: targetBossX, y: targetBossY, duration: 1500, ease: 'Power2' });
 
-                                                            // 画面全体のフラッシュ
                                                             const screenLight = scene.add.rectangle(360, 640, 720, 1280, 0xffffff).setOrigin(0.5);
                                                             screenLight.setAlpha(0);
                                                             screenLight.setDepth(100);
 
-                                                            // ★シルエットと画面周りが【同時に】白くなっていく
                                                             scene.tweens.add({
                                                                 targets: [whiteSilhouette, screenLight],
-                                                                alpha: 1, // 完全に白くする
+                                                                alpha: 1, 
                                                                 duration: 1500,
                                                                 ease: 'Power2',
                                                                 onComplete: () => {
-                                                                    // 光に包まれた裏で変身させる
                                                                     targetEnemy.setVisible(false);
                                                                     whiteSilhouette.destroy();
 
@@ -292,7 +287,6 @@
                                                                     secondFormBoss.setDisplaySize(680, 680);
                                                                     secondFormBoss.setDepth(50);
 
-                                                                    // 光が晴れて第二形態登場
                                                                     scene.time.delayedCall(1000, () => {
                                                                         scene.tweens.add({
                                                                             targets: screenLight,
@@ -301,54 +295,55 @@
                                                                             ease: 'Linear',
                                                                             onComplete: () => {
                                                                                 
-                                                                                // ★修正2: 咆哮アクション
+                                                                                // ★咆哮アクション（重く、長く修正）
                                                                                 secondFormBoss.setTexture('enemy2_roar');
-                                                                                scene.cameras.main.shake(800, 0.025);
+                                                                                scene.cameras.main.shake(1500, 0.02); // 揺れ時間を延長
 
                                                                                 const shockwave = scene.add.circle(secondFormBoss.x, secondFormBoss.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
                                                                                 scene.tweens.add({ 
                                                                                     targets: shockwave, 
-                                                                                    radius: 400, 
+                                                                                    radius: 500, // 広がりを大きく
                                                                                     alpha: 0, 
-                                                                                    duration: 700, 
+                                                                                    duration: 1500, // 700ms -> 1500ms（雄叫びを長く）
                                                                                     ease: 'Cubic.easeOut', 
                                                                                     onComplete: () => {
                                                                                         shockwave.destroy();
                                                                                         
-                                                                                        // 衝撃波後、ズームせずにすぐ口を閉じる
+                                                                                        // 衝撃波後、すぐ口を閉じる
                                                                                         secondFormBoss.setTexture('enemy2');
                                                                                         
-                                                                                        // ★修正3: 潰れてからジャンプ、小さくなって着地
                                                                                         const baseW = 680, baseH = 680, baseY = 560;
 
-                                                                                        // 3-A. 少し潰れる（力を溜める）
+                                                                                        // ★3-A. ゆっくり潰れる（力を溜める時間を200ms -> 700msへ延長）
                                                                                         scene.tweens.add({
                                                                                             targets: secondFormBoss,
                                                                                             displayHeight: baseH * 0.75,
                                                                                             displayWidth: baseW * 1.15,
-                                                                                            y: baseY + 85, // 地面（底）が浮かないように座標を下げる
-                                                                                            duration: 200,
-                                                                                            ease: 'Sine.easeOut',
+                                                                                            y: baseY + 85, 
+                                                                                            duration: 700, 
+                                                                                            ease: 'Sine.easeInOut',
                                                                                             onComplete: () => {
                                                                                                 
-                                                                                                // 3-B. はずみで画面上部に飛んで消える
+                                                                                                // ★3-B. 画面上部に飛ぶ（ジャンプ速度を重くし、飛ぶ前に300msの「タメ」を追加）
                                                                                                 scene.tweens.add({
                                                                                                     targets: secondFormBoss,
                                                                                                     displayHeight: baseH * 1.1,
                                                                                                     displayWidth: baseW * 0.9,
-                                                                                                    y: -500, // 画面外（上）へ飛ぶ
-                                                                                                    duration: 350,
+                                                                                                    y: -500, 
+                                                                                                    duration: 700, // 350ms -> 700ms
+                                                                                                    delay: 300,    // 一瞬静止してタメる
                                                                                                     ease: 'Cubic.easeIn',
                                                                                                     onComplete: () => {
                                                                                                         
-                                                                                                        // 3-C. 少し小さくなって画面上部から現れる
-                                                                                                        secondFormBoss.setDisplaySize(500, 500); // 縮小！
+                                                                                                        // 3-C. 少し小さくなる
+                                                                                                        secondFormBoss.setDisplaySize(500, 500); 
                                                                                                         
-                                                                                                        // 3-D. ドスンと着地
+                                                                                                        // ★3-D. ドスンと着地（落ちる時間を長くし、画面外で500msの「滞空時間」を追加）
                                                                                                         scene.tweens.add({
                                                                                                             targets: secondFormBoss,
-                                                                                                            y: 560, // 元の高さへ落ちてくる
-                                                                                                            duration: 600,
+                                                                                                            y: 560, 
+                                                                                                            duration: 1200, // 600ms -> 1200ms
+                                                                                                            delay: 500,     // 画面外にしばらく消える
                                                                                                             ease: 'Bounce.easeOut'
                                                                                                         });
                                                                                                     }
