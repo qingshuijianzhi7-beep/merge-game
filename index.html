@@ -24,12 +24,6 @@
 
         const game = new Phaser.Game(config);
 
-        document.addEventListener('pointerdown', () => {
-            if (game.sound && game.sound.context && game.sound.context.state === 'suspended') {
-                game.sound.context.resume();
-            }
-        });
-
         let alliedUnits, enemyUnits;
         let turnText, turn = 1, isTurnExecuting = false;
         
@@ -42,7 +36,6 @@
         const ENEMY_START_Y = 120;
         const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40;
 
-        // ★ダーク背景をグローバルで保持（確実に消すため）
         let darkBgOverlay = null;
 
         function preload() {
@@ -58,6 +51,13 @@
         }
 
         function create() {
+            // ★ドラッグ開始時など、画面に触れた瞬間にミュートを強制解除（音は鳴らしません）
+            this.input.on('pointerdown', () => {
+                if (this.sound.context && this.sound.context.state === 'suspended') {
+                    this.sound.context.resume();
+                }
+            });
+
             turnText = this.add.text(360, 40, `TURN: ${turn}`, { fontSize: '32px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
 
             setupGrid(this, { x: START_X, y: ENEMY_START_Y, color: 0x4a1a1a }, ENEMY_ROWS, COLS);
@@ -160,6 +160,7 @@
         function executeTurn(scene) {
             if (isTurnExecuting) return;
             isTurnExecuting = true;
+
             handleAttack(scene, () => {
                 moveEnemiesForward(scene, () => {
                     turn++;
@@ -195,6 +196,7 @@
             scene.physics.add.existing(arrow);
             arrow.body.setVelocityY(-1200);
 
+            // ★ここで「位置が変わって矢が発射された時」に確実に音が鳴ります
             try { scene.sound.play('shoot'); } catch(e) {}
 
             const damage = unit.getData('level') * 25; 
@@ -236,7 +238,6 @@
                                     repeat: 5,
                                     onComplete: () => {
                                         
-                                        // ★ここで暗転用の背景を生成し、グローバル変数に入れる
                                         darkBgOverlay = scene.add.rectangle(360, 640, 720, 1280, 0x000000, 0.8).setDepth(40);
                                         
                                         targetEnemy.setDepth(50);
@@ -301,9 +302,8 @@
                                                                             ease: 'Linear',
                                                                             onComplete: () => {
                                                                                 
-                                                                                // ★修正1：口が開くのと「同時に」咆哮音を鳴らす！
                                                                                 secondFormBoss.setTexture('enemy2_roar');
-                                                                                try { scene.sound.play('roar'); } catch(e) {} // タイミングを先頭に移動
+                                                                                try { scene.sound.play('roar'); } catch(e) {} 
                                                                                 
                                                                                 scene.cameras.main.shake(1500, 0.02);
 
@@ -339,7 +339,6 @@
                                                                                                     ease: 'Cubic.easeIn',
                                                                                                     onComplete: () => {
                                                                                                         
-                                                                                                        // ★修正2：画面外に飛んだタイミングで黒背景を【完全に破棄】する
                                                                                                         if (darkBgOverlay) {
                                                                                                             darkBgOverlay.destroy();
                                                                                                             darkBgOverlay = null;
