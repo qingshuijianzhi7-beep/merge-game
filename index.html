@@ -42,6 +42,9 @@
         const ENEMY_START_Y = 120;
         const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40;
 
+        // ★ダーク背景をグローバルで保持（確実に消すため）
+        let darkBgOverlay = null;
+
         function preload() {
             this.load.image('hero', 'hero.png');
             this.load.image('arrow', 'arrow.png');
@@ -232,7 +235,9 @@
                                     yoyo: true,
                                     repeat: 5,
                                     onComplete: () => {
-                                        const darkBg = scene.add.rectangle(360, 640, 720, 1280, 0x000000, 0.8).setDepth(40);
+                                        
+                                        // ★ここで暗転用の背景を生成し、グローバル変数に入れる
+                                        darkBgOverlay = scene.add.rectangle(360, 640, 720, 1280, 0x000000, 0.8).setDepth(40);
                                         
                                         targetEnemy.setDepth(50);
                                         ui.forEach(u => u.setVisible(false));
@@ -296,8 +301,9 @@
                                                                             ease: 'Linear',
                                                                             onComplete: () => {
                                                                                 
+                                                                                // ★修正1：口が開くのと「同時に」咆哮音を鳴らす！
                                                                                 secondFormBoss.setTexture('enemy2_roar');
-                                                                                try { scene.sound.play('roar'); } catch(e) {}
+                                                                                try { scene.sound.play('roar'); } catch(e) {} // タイミングを先頭に移動
                                                                                 
                                                                                 scene.cameras.main.shake(1500, 0.02);
 
@@ -314,7 +320,6 @@
                                                                                         
                                                                                         const baseW = 680, baseH = 680, baseY = 560;
 
-                                                                                        // ゆっくり潰れる
                                                                                         scene.tweens.add({
                                                                                             targets: secondFormBoss,
                                                                                             displayHeight: baseH * 0.75,
@@ -324,7 +329,6 @@
                                                                                             ease: 'Sine.easeInOut',
                                                                                             onComplete: () => {
                                                                                                 
-                                                                                                // 画面上部に飛ぶ
                                                                                                 scene.tweens.add({
                                                                                                     targets: secondFormBoss,
                                                                                                     displayHeight: baseH * 1.1,
@@ -335,19 +339,21 @@
                                                                                                     ease: 'Cubic.easeIn',
                                                                                                     onComplete: () => {
                                                                                                         
-                                                                                                        if (darkBg) darkBg.destroy();
+                                                                                                        // ★修正2：画面外に飛んだタイミングで黒背景を【完全に破棄】する
+                                                                                                        if (darkBgOverlay) {
+                                                                                                            darkBgOverlay.destroy();
+                                                                                                            darkBgOverlay = null;
+                                                                                                        }
 
                                                                                                         secondFormBoss.setDisplaySize(500, 500); 
                                                                                                         
-                                                                                                        // ★修正ポイント：ゆっくりと静かに降臨（Bounceをやめ、時間を長く、イージングを滑らかに）
                                                                                                         scene.tweens.add({
                                                                                                             targets: secondFormBoss,
                                                                                                             y: 560, 
-                                                                                                            duration: 2500, // 1200ms -> 2500ms（ゆっくり落ちてくる）
+                                                                                                            duration: 2500, 
                                                                                                             delay: 500, 
-                                                                                                            ease: 'Sine.easeInOut', // バウンドせず、スーッと静止する
+                                                                                                            ease: 'Sine.easeInOut',
                                                                                                             onComplete: () => {
-                                                                                                                // 着地直後のHPゲージ演出
                                                                                                                 const hpBarWidth = 680;
                                                                                                                 const bossHpBg = scene.add.rectangle(20, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(100);
                                                                                                                 const bossHpFill = scene.add.rectangle(20, 60, 0, 24, 0xff0000).setOrigin(0, 0.5).setDepth(101);
