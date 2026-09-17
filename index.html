@@ -24,12 +24,12 @@
 
         const game = new Phaser.Game(config);
 
-        // ブラウザの音声ブロックを最初のタッチ（ドラッグ含む）で確実に解除
+        // ★ブラウザの音声ブロックを最初のタッチで強制解除する処理
         document.addEventListener('pointerdown', () => {
             if (game.sound && game.sound.context && game.sound.context.state === 'suspended') {
                 game.sound.context.resume();
             }
-        }, { once: true });
+        });
 
         let alliedUnits, enemyUnits;
         let turnText, turn = 1, isTurnExecuting = false;
@@ -47,8 +47,8 @@
             this.load.image('hero', 'hero.png');
             this.load.image('arrow', 'arrow.png');
             this.load.image('enemy', 'enemy.png');
-            this.load.image('enemy2', 'enemy2.png'); // 第二形態（通常・口閉じ）
-            this.load.image('enemy2_roar', 'enemy2_roar.png'); // ★叫んでいる（口を開けている）画像を追加
+            this.load.image('enemy2', 'enemy2.png'); 
+            this.load.image('enemy2_roar', 'enemy2_roar.png'); 
             this.load.audio('shoot', 'shoot.mp3');
             this.load.audio('hit', 'hit.mp3');
             this.load.audio('crowned', 'crowned.mp3');
@@ -79,10 +79,6 @@
 
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
-            
-            this.input.on('dragstart', () => {
-                if (this.sound.context.state === 'suspended') this.sound.context.resume();
-            });
         }
 
         function update() {}
@@ -152,8 +148,7 @@
                 
                 scene.time.delayedCall(500, () => {
                     scene.add.text(360, 640, 'GAME OVER', { 
-                        fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', 
-                        stroke: '#000', strokeThickness: 8 
+                        fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
                     }).setOrigin(0.5).setDepth(100);
                 });
             }
@@ -197,6 +192,7 @@
             scene.physics.add.existing(arrow);
             arrow.body.setVelocityY(-1200);
 
+            // ★ここで攻撃音が鳴る（Fireボタン押下、またはドラッグ移動後の確定時のみ呼ばれます）
             try { scene.sound.play('shoot'); } catch(e) {}
 
             const damage = unit.getData('level') * 25; 
@@ -263,104 +259,75 @@
                                                         scene.time.delayedCall(2000, () => {
                                                             dialogueText.setVisible(false);
 
-                                                            // 移動開始と同時にBGMを再生
+                                                            // ★1. 音楽開始と【同時】にエネミーを白くする
                                                             try { scene.sound.play('crowned'); } catch(e) {}
+                                                            targetEnemy.setTintFill(0xffffff); // シルエットを白化
                                                             
-                                                            // 右上へ座標移動
                                                             const targetBossX = targetEnemy.x + 120;
                                                             const targetBossY = targetEnemy.y - 180;
-                                                            scene.tweens.add({
-                                                                targets: targetEnemy,
-                                                                x: targetBossX,
-                                                                y: targetBossY,
-                                                                duration: 1500,
-                                                                ease: 'Power2'
-                                                            });
+                                                            scene.tweens.add({ targets: targetEnemy, x: targetBossX, y: targetBossY, duration: 1500, ease: 'Power2' });
 
-                                                            // 2.5秒後：画像が白くなる
-                                                            let whiteBoss;
-                                                            scene.time.delayedCall(2500, () => {
-                                                                whiteBoss = scene.add.sprite(targetBossX, targetBossY, 'enemy').setOrigin(0.5);
-                                                                whiteBoss.setDisplaySize(targetEnemy.displayWidth, targetEnemy.displayHeight);
-                                                                whiteBoss.setTintFill(0xffffff);
-                                                                whiteBoss.setAlpha(0);
-                                                                whiteBoss.setDepth(targetEnemy.depth + 1);
+                                                            // ★2. 音楽開始から【1.5秒後】に画面全体が光に包まれる
+                                                            scene.time.delayedCall(1500, () => {
+                                                                const screenLight = scene.add.rectangle(360, 640, 720, 1280, 0xffffff).setOrigin(0.5);
+                                                                screenLight.setAlpha(0);
+                                                                screenLight.setDepth(100);
 
                                                                 scene.tweens.add({
-                                                                    targets: whiteBoss,
-                                                                    alpha: 1,
-                                                                    duration: 1000,
-                                                                    ease: 'Linear'
-                                                                });
-                                                            });
-
-                                                            // 3.5秒後：画面全体が光に包まれる
-                                                            const screenLight = scene.add.rectangle(360, 640, 720, 1280, 0xffffff).setOrigin(0.5);
-                                                            screenLight.setAlpha(0);
-                                                            screenLight.setDepth(100);
-
-                                                            scene.tweens.add({
                                                                     targets: screenLight,
                                                                     alpha: 1,
                                                                     duration: 1500,
-                                                                    ease: 'Power2'
-                                                            });
-
-                                                            // 4.5秒後：光で完全に隠れている間に第二形態（enemy2）を配置
-                                                            let secondFormBoss;
-                                                            scene.time.delayedCall(4500, () => {
-                                                                targetEnemy.setVisible(false);
-                                                                if (whiteBoss) whiteBoss.destroy();
-
-                                                                secondFormBoss = scene.add.sprite(360, 560, 'enemy2').setOrigin(0.5);
-                                                                secondFormBoss.setDisplaySize(680, 680);
-                                                                secondFormBoss.setDepth(50);
-                                                            });
-
-                                                            // 6.0秒後：光がフェードアウト開始（9秒で完全に晴れる）
-                                                            scene.time.delayedCall(6000, () => {
-                                                                scene.tweens.add({
-                                                                    targets: screenLight,
-                                                                    alpha: 0,
-                                                                    duration: 3000,
-                                                                    ease: 'Linear'
-                                                                });
-                                                            });
-
-                                                            // ★9.0秒後：咆哮の瞬間に叫び画像へ切り替え＆アクション演出
-                                                            scene.time.delayedCall(9000, () => {
-                                                                if (!secondFormBoss) return;
-
-                                                                // 1. テクスチャを叫び画像（enemy2_roar）に即時切り替え！
-                                                                secondFormBoss.setTexture('enemy2_roar');
-
-                                                                // 2. 画面全体の激しい揺れ（カメラシェイク）
-                                                                scene.cameras.main.shake(800, 0.025);
-
-                                                                // 3. 口元からの咆哮衝撃波リング
-                                                                const shockwave = scene.add.circle(secondFormBoss.x, secondFormBoss.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
-                                                                scene.tweens.add({
-                                                                    targets: shockwave,
-                                                                    radius: 400,
-                                                                    alpha: 0,
-                                                                    duration: 700,
-                                                                    ease: 'Cubic.easeOut',
-                                                                    onComplete: () => shockwave.destroy()
-                                                                });
-
-                                                                // 4. ボス本体の咆哮アニメーション（沈み込み → ガバッと拡大）
-                                                                scene.tweens.add({
-                                                                    targets: secondFormBoss,
-                                                                    scaleX: 1.15,
-                                                                    scaleY: 1.25,
-                                                                    y: secondFormBoss.y - 25,
-                                                                    duration: 150,
-                                                                    yoyo: true,
-                                                                    repeat: 2,
-                                                                    ease: 'Quad.easeInOut',
+                                                                    ease: 'Power2',
                                                                     onComplete: () => {
-                                                                        // 咆哮が終わったら（反動が収まったら）、元の第二形態画像に戻す
-                                                                        secondFormBoss.setTexture('enemy2');
+                                                                        // 光で隠れている間に第二形態を配置
+                                                                        targetEnemy.setVisible(false);
+                                                                        const secondFormBoss = scene.add.sprite(360, 560, 'enemy2').setOrigin(0.5);
+                                                                        secondFormBoss.setDisplaySize(680, 680);
+                                                                        secondFormBoss.setDepth(50);
+
+                                                                        // 光をフェードアウト
+                                                                        scene.time.delayedCall(1000, () => {
+                                                                            scene.tweens.add({
+                                                                                targets: screenLight,
+                                                                                alpha: 0,
+                                                                                duration: 2500,
+                                                                                ease: 'Linear',
+                                                                                onComplete: () => {
+                                                                                    
+                                                                                    // ★3. 咆哮演出（テクスチャ変更＆揺れ）
+                                                                                    secondFormBoss.setTexture('enemy2_roar');
+                                                                                    scene.cameras.main.shake(800, 0.025);
+
+                                                                                    // 衝撃波
+                                                                                    const shockwave = scene.add.circle(secondFormBoss.x, secondFormBoss.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
+                                                                                    scene.tweens.add({ targets: shockwave, radius: 400, alpha: 0, duration: 700, ease: 'Cubic.easeOut', onComplete: () => shockwave.destroy() });
+
+                                                                                    // ★4. ゆっくり2秒かけてズームし、1秒で戻る（反復なし）
+                                                                                    scene.tweens.add({
+                                                                                        targets: secondFormBoss,
+                                                                                        displayWidth: 780, // 大きく開く
+                                                                                        displayHeight: 820,
+                                                                                        y: secondFormBoss.y - 25,
+                                                                                        duration: 2000, // 2秒かける
+                                                                                        ease: 'Quad.easeOut',
+                                                                                        onComplete: () => {
+                                                                                            // 開ききったら1秒で元に戻る
+                                                                                            scene.tweens.add({
+                                                                                                targets: secondFormBoss,
+                                                                                                displayWidth: 680,
+                                                                                                displayHeight: 680,
+                                                                                                y: secondFormBoss.y + 25,
+                                                                                                duration: 1000, // 1秒かける
+                                                                                                ease: 'Quad.easeIn',
+                                                                                                onComplete: () => {
+                                                                                                    secondFormBoss.setTexture('enemy2'); // 最後に口を閉じた画像に戻す
+                                                                                                }
+                                                                                            });
+                                                                                        }
+                                                                                    });
+                                                                                }
+                                                                            });
+                                                                        });
                                                                     }
                                                                 });
                                                             });
@@ -371,7 +338,6 @@
                                         });
                                     }
                                 });
-
                             } else {
                                 targetEnemy.setData('hp', newHP);
                                 const ui = targetEnemy.getData('ui');
@@ -453,6 +419,7 @@
             const oldX = gameObject.getData('gridX');
             const oldY = gameObject.getData('gridY');
 
+            // ドラッグしたけど元の位置のままだった場合は攻撃（ターン進行）させない
             if (dropGridX < 0 || dropGridX >= COLS || dropGridY < 0 || dropGridY >= ALLIED_ROWS || (dropGridX === oldX && dropGridY === oldY)) {
                 returnAllUnitToPosition(gameObject); return;
             }
@@ -464,6 +431,7 @@
                 }
             });
 
+            // 違う位置に移動、またはマージが成功した場合に executeTurn() が呼ばれ、攻撃音が鳴る
             if (targetUnit && targetUnit.getData('type') === gameObject.getData('type') && targetUnit.getData('level') === gameObject.getData('level')) {
                 const newLevel = gameObject.getData('level') + 1;
                 const type = gameObject.getData('type');
