@@ -51,7 +51,7 @@
         }
 
         function create() {
-            // ★ドラッグ開始時など、画面に触れた瞬間にミュートを強制解除（音は鳴らしません）
+            // ★画面のどこかに触れた瞬間に、音は鳴らさず「オーディオのミュート制限」だけを解除する
             this.input.on('pointerdown', () => {
                 if (this.sound.context && this.sound.context.state === 'suspended') {
                     this.sound.context.resume();
@@ -196,7 +196,7 @@
             scene.physics.add.existing(arrow);
             arrow.body.setVelocityY(-1200);
 
-            // ★ここで「位置が変わって矢が発射された時」に確実に音が鳴ります
+            // ★キャラクターの位置が変わって矢を撃つ瞬間に確実に音が鳴ります
             try { scene.sound.play('shoot'); } catch(e) {}
 
             const damage = unit.getData('level') * 25; 
@@ -293,6 +293,8 @@
                                                                     const secondFormBoss = scene.add.sprite(360, 560, 'enemy2').setOrigin(0.5);
                                                                     secondFormBoss.setDisplaySize(680, 680);
                                                                     secondFormBoss.setDepth(50);
+                                                                    // ★重要: 画像の黒い背景を透明化する処理
+                                                                    secondFormBoss.setBlendMode(Phaser.BlendModes.SCREEN);
 
                                                                     scene.time.delayedCall(1000, () => {
                                                                         scene.tweens.add({
