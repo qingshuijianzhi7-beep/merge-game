@@ -236,7 +236,6 @@
                                     repeat: 5,
                                     onComplete: () => {
                                         
-                                        // ★確実に背面レイヤー（depth40）に暗転背景を生成
                                         darkBgOverlay = scene.add.rectangle(360, 640, 720, 1280, 0x000000, 0.8).setDepth(40);
                                         
                                         targetEnemy.setDepth(50);
@@ -289,9 +288,10 @@
                                                                     targetEnemy.setVisible(false);
                                                                     whiteSilhouette.destroy();
 
-                                                                    const secondFormBoss = scene.add.sprite(360, 560, 'enemy2').setOrigin(0.5);
-                                                                    secondFormBoss.setDisplaySize(680, 680);
-                                                                    // ★エネミー本体のレイヤーは暗転(40)より手前の50に固定。半透明化(BlendMode)は削除。
+                                                                    // ★位置をY:560からY:480へと少し上に変更
+                                                                    const secondFormBoss = scene.add.sprite(360, 480, 'enemy2').setOrigin(0.5);
+                                                                    // ★咆哮時のサイズを大きすぎない500x500に縮小
+                                                                    secondFormBoss.setDisplaySize(500, 500);
                                                                     secondFormBoss.setDepth(50);
 
                                                                     scene.time.delayedCall(1000, () => {
@@ -318,7 +318,8 @@
                                                                                         shockwave.destroy();
                                                                                         secondFormBoss.setTexture('enemy2');
                                                                                         
-                                                                                        const baseW = 680, baseH = 680, baseY = 560;
+                                                                                        // ★ベースサイズと位置の基準も修正
+                                                                                        const baseW = 500, baseH = 500, baseY = 480;
 
                                                                                         scene.tweens.add({
                                                                                             targets: secondFormBoss,
@@ -339,7 +340,6 @@
                                                                                                     ease: 'Cubic.easeIn',
                                                                                                     onComplete: () => {
                                                                                                         
-                                                                                                        // ★完全に画面外へ飛んだタイミングで暗黒背景を破棄
                                                                                                         if (darkBgOverlay) {
                                                                                                             darkBgOverlay.destroy();
                                                                                                             darkBgOverlay = null;
@@ -349,7 +349,8 @@
                                                                                                         
                                                                                                         scene.tweens.add({
                                                                                                             targets: secondFormBoss,
-                                                                                                            y: 560, 
+                                                                                                            // ★最終的な着地位置もY:480に統一
+                                                                                                            y: 480, 
                                                                                                             duration: 2500, 
                                                                                                             delay: 500, 
                                                                                                             ease: 'Sine.easeInOut',
@@ -511,3 +512,4 @@
     </script>
 </body>
 </html>
+
