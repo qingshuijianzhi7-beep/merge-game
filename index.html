@@ -41,7 +41,7 @@
         let bossEnemy = null; 
         let bossUI = [];
         let isShooterMode = false;
-        let spaceYOffset = 0; // ★カメラが宇宙へ移動した際の座標補正用
+        let spaceYOffset = 0; 
 
         function preload() {
             this.load.image('hero', 'hero.png');
@@ -59,10 +59,11 @@
         }
 
         function create() {
+            // ★星用テクスチャ（少しだけ大きくして見えやすくする）
             const g = this.make.graphics({x: 0, y: 0, add: false});
             g.fillStyle(0xffffff);
-            g.fillRect(0, 0, 2, 2); 
-            g.generateTexture('star', 2, 2);
+            g.fillRect(0, 0, 3, 3); 
+            g.generateTexture('star', 3, 3);
 
             this.input.on('pointerdown', () => {
                 if (this.sound.context && this.sound.context.state === 'suspended') {
@@ -505,7 +506,6 @@
             });
         }
 
-        // ★宇宙への打ち上げ〜カメラパンの神演出
         function transitionToShooter(scene, hero) {
             turnText.setVisible(false);
             
@@ -514,12 +514,11 @@
             const bossBaseH = bossEnemy.displayHeight;
             const bossBaseW = bossEnemy.displayWidth;
             
-            // 1. 力をためる（1秒かけて潰れる）
             scene.tweens.add({
                 targets: hero,
                 displayHeight: heroBaseH * 0.6,
                 displayWidth: heroBaseW * 1.3,
-                y: hero.y + (heroBaseH * 0.2), // 少し下に沈む
+                y: hero.y + (heroBaseH * 0.2), 
                 duration: 1000,
                 ease: 'Sine.easeOut'
             });
@@ -532,12 +531,11 @@
                 duration: 1000,
                 ease: 'Sine.easeOut',
                 onComplete: () => {
-                    // 2. 弾みをつけて超高速で上空(画面外)へカッ飛ぶ
                     scene.tweens.add({
                         targets: hero,
-                        displayHeight: heroBaseH * 1.2, // 縦にシュッと伸びる
+                        displayHeight: heroBaseH * 1.2, 
                         displayWidth: heroBaseW * 0.8,
-                        y: -1500, // 遥か上空へ
+                        y: -1500, 
                         duration: 400,
                         ease: 'Cubic.easeIn'
                     });
@@ -550,36 +548,31 @@
                         duration: 400,
                         ease: 'Cubic.easeIn',
                         onComplete: () => {
-                            // キャラサイズを元に戻し、一旦古いボスUIを破棄
                             hero.setDisplaySize(heroBaseW, heroBaseH);
                             bossEnemy.setDisplaySize(bossBaseW, bossBaseH);
                             bossUI.forEach(ui => ui.destroy());
                             bossUI = [];
 
-                            // 3. なにもなくなった盤面を少し見せる（余韻）
                             scene.time.delayedCall(800, () => {
                                 
-                                // 4. カメラの上空（Y=-1280 ~ 0の範囲）に宇宙を生成しておく
-                                spaceYOffset = -1280; // 操作系の座標を宇宙用にずらすフラグ
+                                spaceYOffset = -1280; 
                                 
                                 scene.add.rectangle(360, -640, 720, 1280, 0x000000).setDepth(250);
                                 
-                                // 星空（少し透明で小さめ。邪魔にならない）
-                                scene.add.particles(0, -1330, 'star', {
+                                // ★星の位置をカメラの中心(-640)より上に設定して確実に画面内に降らせる
+                                scene.add.particles(0, -1400, 'star', {
                                     x: { min: 0, max: 720 },
                                     y: 0,
                                     lifespan: 3000,
                                     speedY: { min: 1000, max: 3000 },
-                                    scale: { min: 0.2, max: 0.8 }, 
-                                    alpha: { min: 0.2, max: 0.6 },
-                                    quantity: 10,
+                                    scale: { min: 0.5, max: 1.0 }, // 少し見えやすく
+                                    alpha: { min: 0.3, max: 0.8 },
+                                    quantity: 15,
                                     blendMode: 'ADD'
                                 }).setDepth(251);
 
-                                // 5. カメラがぐーっと上（宇宙）へパンしていく！
                                 scene.cameras.main.pan(360, -640, 2000, 'Sine.easeInOut');
 
-                                // パンが終わったら対峙シーンへ
                                 scene.time.delayedCall(2000, () => {
                                     startShooterMode(scene, hero);
                                 });
@@ -596,26 +589,23 @@
             hero.setDepth(260);
             bossEnemy.setDepth(260);
             
-            // ★カメラの新しい中心は(360, -640)。画面下部はY=0、上部はY=-1280になる
-            
             hero.x = 360;
-            hero.y = 200; // 新しい画面の少し下（見えない位置）から
+            hero.y = 200; 
             scene.tweens.add({
                 targets: hero,
-                y: -280, // 新しい画面の下寄り定位置へ
+                y: -280, 
                 duration: 1000,
                 ease: 'Power2'
             });
             
             bossEnemy.x = 360;
-            bossEnemy.y = -1600; // 新しい画面の少し上から
+            bossEnemy.y = -1600; 
             scene.tweens.add({
                 targets: bossEnemy,
-                y: -1030, // 新しい画面の上寄り定位置へ
+                y: -1030, 
                 duration: 1000,
                 ease: 'Power2',
                 onComplete: () => {
-                    // ★ボスUIを再生成（setScrollFactor(0)をつけて画面に完全固定する）
                     const hpBarWidth = 680;
                     const bossHpBg = scene.add.rectangle(20, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
                     const bossHpFill = scene.add.rectangle(20, 60, hpBarWidth, 24, 0xff0000).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0);
@@ -624,10 +614,36 @@
                     }).setDepth(300).setScrollFactor(0);
                     
                     bossUI = [bossHpBg, bossHpFill, bossNameText];
+
+                    // ★対峙後、キャラとキャラの間に説明テキストをド派手に表示
+                    const instructionText = scene.add.text(360, -640, "そーごを操作して、\nしゅんを倒せ！！", { 
+                        fontSize: '48px', fill: '#ffeb3b', fontStyle: 'bold', align: 'center', 
+                        stroke: '#ff0000', strokeThickness: 8,
+                        shadow: { offsetX: 3, offsetY: 3, color: '#000', blur: 5, fill: true }
+                    }).setOrigin(0.5).setDepth(400);
+
+                    // テキストを少しポップさせるアニメーション
+                    scene.tweens.add({
+                        targets: instructionText,
+                        scaleX: 1.1,
+                        scaleY: 1.1,
+                        duration: 500,
+                        yoyo: true,
+                        repeat: 2, // 3回ドクン、ドクンとさせる
+                        onComplete: () => {
+                            // 表示してから2秒後に消滅して、攻撃開始
+                            scene.time.delayedCall(1500, () => {
+                                instructionText.destroy();
+                                startAutoShooting(scene, hero);
+                            });
+                        }
+                    });
                 }
             });
+        }
 
-            // ★シューティング用のオートショット
+        // ★オート連射の処理を分離
+        function startAutoShooting(scene, hero) {
             scene.time.addEvent({
                 delay: 150, 
                 loop: true,
@@ -635,7 +651,7 @@
                     if (!isShooterMode || !hero.active) return;
                     
                     const bullet = scene.add.sprite(hero.x, hero.y - 50, 'arrow').setOrigin(0.5).setDepth(255);
-                    bullet.setDisplaySize(40, 100); // 矢を2倍サイズに
+                    bullet.setDisplaySize(40, 100); 
                     scene.physics.add.existing(bullet);
                     bullet.body.setVelocityY(-2000); 
                     
@@ -647,7 +663,6 @@
                         callback: () => {
                             if (!bullet.active) { checkHitEvent.remove(); return; }
                             
-                            // 宇宙の画面上端（-1280）より少し上で消去
                             if (bullet.y < -1380) { 
                                 bullet.destroy();
                                 checkHitEvent.remove();
@@ -711,7 +726,6 @@
         function handleDrag(pointer, gameObject, dragX, dragY) {
             if (isShooterMode) {
                 if (gameObject.getData('isAllied')) {
-                    // ★カメラが上に移動した分の座標(spaceYOffset)を足して移動範囲を補正
                     gameObject.x = Phaser.Math.Clamp(dragX, 50, 670);
                     gameObject.y = Phaser.Math.Clamp(dragY, 100 + spaceYOffset, 1180 + spaceYOffset);
                 }
