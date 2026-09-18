@@ -40,7 +40,7 @@
         
         let bossEnemy = null; 
         let bossUI = [];
-        let heroShooterUI = []; // ★シューティング時のヒーロー用UI
+        let heroShooterUI = []; 
         let isShooterMode = false;
         let spaceYOffset = 0; 
 
@@ -57,7 +57,7 @@
             this.load.audio('hit', 'hit.mp3');
             this.load.audio('crowned', 'crowned.mp3');
             this.load.audio('roar', 'roar.mp3'); 
-            this.load.audio('alarm', 'alarm.mp3'); // アラーム音の読み込み
+            this.load.audio('alarm', 'alarm.mp3'); 
         }
 
         function create() {
@@ -552,7 +552,6 @@
                             hero.setDisplaySize(heroBaseW, heroBaseH);
                             bossEnemy.setDisplaySize(bossBaseW, bossBaseH);
                             
-                            // 古いUIは破棄
                             bossUI.forEach(ui => ui.destroy());
                             bossUI = [];
 
@@ -607,29 +606,28 @@
                 ease: 'Power2',
                 onComplete: () => {
 
-                    // ★ボスのHPバー (上部) - 初期は非表示
+                    // ★ボスのHPバー (上部・左から右)
                     const hpBarWidth = 660;
-                    const bossHpBg = scene.add.rectangle(690, 60, hpBarWidth, 24, 0x555555).setOrigin(1, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
-                    const bossHpFill = scene.add.rectangle(690, 60, 0, 24, 0xff0000).setOrigin(1, 0.5).setDepth(301).setScrollFactor(0).setVisible(false);
-                    const bossNameText = scene.add.text(690, 25, "AWAKENED SHUN", { 
+                    const bossHpBg = scene.add.rectangle(30, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                    const bossHpFill = scene.add.rectangle(30, 60, 0, 24, 0xff0000).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0).setVisible(false);
+                    const bossNameText = scene.add.text(30, 25, "AWAKENED SHUN", { 
                         fontFamily: '"Impact", "Arial Black", sans-serif',
                         fontSize: '28px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
-                    }).setOrigin(1, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                    }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     
                     bossUI = [bossHpBg, bossHpFill, bossNameText];
 
-                    // ★ヒーローのHPバー (下部・HP1000) - 初期は非表示
+                    // ★ヒーローのHPバー (下部・左から右・HP表記追加)
                     globalHP = 1000;
-                    const heroHpBg = scene.add.rectangle(690, 1220, hpBarWidth, 24, 0x555555).setOrigin(1, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
-                    const heroHpFill = scene.add.rectangle(690, 1220, 0, 24, 0x00e676).setOrigin(1, 0.5).setDepth(301).setScrollFactor(0).setVisible(false);
-                    const heroNameText = scene.add.text(690, 1185, "SUPER SOGO", { 
+                    const heroHpBg = scene.add.rectangle(30, 1220, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                    const heroHpFill = scene.add.rectangle(30, 1220, 0, 24, 0x00e676).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0).setVisible(false);
+                    const heroNameText = scene.add.text(30, 1185, "SUPER SOGO   HP: 1000 / 1000", { 
                         fontFamily: '"Impact", "Arial Black", sans-serif',
                         fontSize: '28px', fill: '#00e676', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
-                    }).setOrigin(1, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                    }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     
                     heroShooterUI = [heroHpBg, heroHpFill, heroNameText];
 
-                    // ★警告文のアニメーション（アラーム音つき）
                     const instructionText = scene.add.text(360, -640, "そーごを操作して、\nしゅんを倒せ！！", { 
                         fontFamily: '"Impact", "Arial Black", sans-serif',
                         fontSize: '60px', fill: '#ffeb3b', fontStyle: 'bold', align: 'center', 
@@ -637,13 +635,14 @@
                         shadow: { offsetX: 4, offsetY: 4, color: '#000', blur: 8, fill: true }
                     }).setOrigin(0.5).setDepth(400);
 
+                    // ★アラーム音と文字の動き（0.4秒×6回 = 計2.4秒）
                     scene.tweens.add({
                         targets: instructionText,
                         scaleX: 1.15,
                         scaleY: 1.15,
-                        duration: 200,   // ★縮む時間と合わせて0.4秒サイクル
+                        duration: 200, // 0.2秒拡大、0.2秒縮小で1往復0.4秒
                         yoyo: true,
-                        repeat: 5,       // ★計6回（2.4秒）ドクンと鳴らす
+                        repeat: 5,     // 最初と合わせて計6往復
                         onStart: () => {
                             try { scene.sound.play('alarm'); } catch(e) {}
                         },
@@ -651,11 +650,9 @@
                             try { scene.sound.play('alarm'); } catch(e) {}
                         },
                         onComplete: () => {
-                            // 警告終了後、少しだけ間を空けてテキストを消す
                             scene.time.delayedCall(300, () => {
                                 instructionText.destroy();
                                 
-                                // ★両者のHPバー＆名前を表示
                                 bossHpBg.setVisible(true);
                                 bossHpFill.setVisible(true);
                                 bossNameText.setVisible(true);
@@ -664,14 +661,13 @@
                                 heroHpFill.setVisible(true);
                                 heroNameText.setVisible(true);
                                 
-                                // ★右から左へ同時にHPバーが伸びる（setOrigin(1, 0.5)を利用）
+                                // ★HPバーを左から右へ伸ばす
                                 scene.tweens.add({
                                     targets: [bossHpFill, heroHpFill],
                                     width: hpBarWidth,
                                     duration: 1200,
                                     ease: 'Power3.easeOut',
                                     onComplete: () => {
-                                        // 伸びきったらバトル開始！
                                         startAutoShooting(scene, hero);
                                     }
                                 });
