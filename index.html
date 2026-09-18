@@ -44,7 +44,6 @@
             this.load.image('enemy', 'enemy.png');
             this.load.image('enemy2', 'enemy2.png'); 
             this.load.image('enemy2_roar', 'enemy2_roar.png'); 
-            // ★新しい画像を2つ読み込み
             this.load.image('partner', 'partner.png'); 
             this.load.image('superhero', 'superhero.png'); 
             
@@ -70,7 +69,7 @@
             enemyUnits = this.add.group();
 
             spawnAlliedUnit(this, 1, 'Hero', 3, 1, 1);
-            spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 100);
+            spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 100); // テスト時は1に
 
             const uiY = 1150;
             this.add.text(70, uiY, 'LIFE', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
@@ -160,12 +159,10 @@
             }
         }
 
-        // ★ふきだし用テキストを作成する関数
+        // ★ボスと同じ赤文字・白フチのフォントスタイルに統一
         function createDialog(scene, x, y, textString) {
             return scene.add.text(x, y, textString, { 
-                fontSize: '20px', fill: '#000', fontStyle: 'bold', 
-                backgroundColor: '#ffffff', padding: { x: 10, y: 5 },
-                stroke: '#000', strokeThickness: 2
+                fontSize: '36px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 
             }).setOrigin(0.5).setDepth(200);
         }
 
@@ -377,7 +374,6 @@
                                                                                                                     duration: 1500,
                                                                                                                     ease: 'Power3.easeOut',
                                                                                                                     onComplete: () => {
-                                                                                                                        // ★HPバーが伸びきった後、ヒーロー覚醒イベント開始
                                                                                                                         startFusionEvent(scene);
                                                                                                                     }
                                                                                                                 });
@@ -418,47 +414,47 @@
             });
         }
 
-        // ★新実装：合体進化イベント
         function startFusionEvent(scene) {
             const hero = alliedUnits.getChildren()[0];
-            if (!hero) return; // ヒーローがいなければ何もしない
+            if (!hero) return;
 
-            // 1. カメラをヒーローにズーム（位置はそのまま）
             scene.cameras.main.pan(hero.x, hero.y, 1000, 'Power2');
             scene.cameras.main.zoomTo(2, 1000, 'Power2');
 
             scene.time.delayedCall(1200, () => {
-                // 2. ヒーローの一言
-                const heroText1 = createDialog(scene, hero.x, hero.y - 50, "やばくね？");
+                const heroText1 = createDialog(scene, hero.x, hero.y - 70, "やばくね？");
 
                 scene.time.delayedCall(1500, () => {
                     heroText1.destroy();
 
-                    // 3. 右画面外からパートナーがニュッと登場
                     const partner = scene.add.sprite(hero.x + 200, hero.y, 'partner').setOrigin(0.5);
                     partner.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
                     partner.setDepth(hero.depth + 1);
 
                     scene.tweens.add({
                         targets: partner,
-                        x: hero.x + 70, // ヒーローの少し右でストップ
+                        x: hero.x + 70,
                         duration: 800,
                         ease: 'Power2.easeOut',
                         onComplete: () => {
-                            // 4. パートナーのセリフ
-                            const partnerText = createDialog(scene, partner.x, partner.y - 50, "合体しよ！");
+                            const partnerText = createDialog(scene, partner.x, partner.y - 70, "合体しよ！");
 
                             scene.time.delayedCall(1500, () => {
                                 partnerText.destroy();
 
-                                // 5. ヒーローの返事
-                                const heroText2 = createDialog(scene, hero.x, hero.y - 50, "いいよ！");
+                                const heroText2 = createDialog(scene, hero.x, hero.y - 70, "いいよ！");
 
                                 scene.time.delayedCall(1500, () => {
                                     heroText2.destroy();
 
-                                    // 6. 光に包まれる（画面全体を覆う巨大な白い四角形）
-                                    // ※カメラがズームしているので通常よりかなり大きくする
+                                    // ★光り始めると同時にパートナーがヒーローに重なるように歩み寄る
+                                    scene.tweens.add({
+                                        targets: partner,
+                                        x: hero.x,
+                                        duration: 800,
+                                        ease: 'Power2.easeIn'
+                                    });
+
                                     const flash = scene.add.rectangle(hero.x, hero.y, 3000, 3000, 0xffffff).setOrigin(0.5).setDepth(200);
                                     flash.setAlpha(0);
 
@@ -466,25 +462,27 @@
                                         targets: flash,
                                         alpha: 1,
                                         duration: 800,
-                                        yoyo: true, // 光ってから消える
-                                        hold: 500, // 真っ白の状態で少し待つ
+                                        yoyo: true,
+                                        hold: 500,
                                         onYoyo: () => {
-                                            // ★画面が真っ白になっている瞬間に姿を変える
                                             hero.setTexture('superhero');
-                                            hero.setDisplaySize(TILE_SIZE * 1.5, TILE_SIZE * 1.5); // 少し大きくする
-                                            partner.destroy(); // パートナーは消滅（合体）
-                                            
-                                            // ヒーローのレベル文字を非表示にする
+                                            hero.setDisplaySize(TILE_SIZE * 1.5, TILE_SIZE * 1.5);
+                                            partner.destroy();
                                             if (hero.getData('text')) hero.getData('text').setVisible(false);
                                         },
                                         onComplete: () => {
                                             flash.destroy();
                                             
-                                            // 7. カメラを元の位置・元のサイズに戻す
-                                            scene.cameras.main.pan(360, 640, 1000, 'Power2');
-                                            scene.cameras.main.zoomTo(1, 1000, 'Power2');
+                                            // ★引きに入る前に合体後キャラのセリフを追加
+                                            const heroText3 = createDialog(scene, hero.x, hero.y - 70, "・・・殺す！");
                                             
-                                            // ※この後に宇宙へのスクロールイベントを実装する準備が整います
+                                            scene.time.delayedCall(2000, () => {
+                                                heroText3.destroy();
+                                                
+                                                // ★セリフが終わってからカメラを元に戻す（引きに入る）
+                                                scene.cameras.main.pan(360, 640, 1000, 'Power2');
+                                                scene.cameras.main.zoomTo(1, 1000, 'Power2');
+                                            });
                                         }
                                     });
                                 });
