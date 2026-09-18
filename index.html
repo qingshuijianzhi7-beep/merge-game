@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Boss Roar Update</title>
+    <title>Merge Shoot RPG - Shooter Transition</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -37,6 +37,11 @@
         const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40;
 
         let darkBgOverlay = null;
+        
+        // ★シューティング用のグローバル変数
+        let bossEnemy = null; 
+        let bossUI = [];
+        let isShooterMode = false;
 
         function preload() {
             this.load.image('hero', 'hero.png');
@@ -54,6 +59,12 @@
         }
 
         function create() {
+            // ★宇宙背景の星用パーティクル画像をプログラムで生成
+            const g = this.make.graphics({x: 0, y: 0, add: false});
+            g.fillStyle(0xffffff);
+            g.fillRect(0, 0, 4, 4);
+            g.generateTexture('star', 4, 4);
+
             this.input.on('pointerdown', () => {
                 if (this.sound.context && this.sound.context.state === 'suspended') {
                     this.sound.context.resume();
@@ -69,7 +80,7 @@
             enemyUnits = this.add.group();
 
             spawnAlliedUnit(this, 1, 'Hero', 3, 1, 1);
-            spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 100); // テスト時は1に
+            spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 1); // テスト用に一撃でボス化(1)
 
             const uiY = 1150;
             this.add.text(70, uiY, 'LIFE', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
@@ -159,7 +170,6 @@
             }
         }
 
-        // ★ボスと同じ赤文字・白フチのフォントスタイルに統一
         function createDialog(scene, x, y, textString) {
             return scene.add.text(x, y, textString, { 
                 fontSize: '36px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 
@@ -298,9 +308,10 @@
                                                                     targetEnemy.setVisible(false);
                                                                     whiteSilhouette.destroy();
 
-                                                                    const secondFormBoss = scene.add.sprite(360, 480, 'enemy2').setOrigin(0.5);
-                                                                    secondFormBoss.setDisplaySize(500, 500);
-                                                                    secondFormBoss.setDepth(50);
+                                                                    // ★ボスをグローバル変数に保持
+                                                                    bossEnemy = scene.add.sprite(360, 480, 'enemy2').setOrigin(0.5);
+                                                                    bossEnemy.setDisplaySize(500, 500);
+                                                                    bossEnemy.setDepth(50);
 
                                                                     scene.time.delayedCall(1000, () => {
                                                                         scene.tweens.add({
@@ -310,12 +321,12 @@
                                                                             ease: 'Linear',
                                                                             onComplete: () => {
                                                                                 
-                                                                                secondFormBoss.setTexture('enemy2_roar');
+                                                                                bossEnemy.setTexture('enemy2_roar');
                                                                                 try { scene.sound.play('roar'); } catch(e) {} 
                                                                                 
                                                                                 scene.cameras.main.shake(1500, 0.02);
 
-                                                                                const shockwave = scene.add.circle(secondFormBoss.x, secondFormBoss.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
+                                                                                const shockwave = scene.add.circle(bossEnemy.x, bossEnemy.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
                                                                                 scene.tweens.add({ 
                                                                                     targets: shockwave, 
                                                                                     radius: 500,
@@ -324,12 +335,12 @@
                                                                                     ease: 'Cubic.easeOut', 
                                                                                     onComplete: () => {
                                                                                         shockwave.destroy();
-                                                                                        secondFormBoss.setTexture('enemy2');
+                                                                                        bossEnemy.setTexture('enemy2');
                                                                                         
                                                                                         const baseW = 500, baseH = 500, baseY = 480;
 
                                                                                         scene.tweens.add({
-                                                                                            targets: secondFormBoss,
+                                                                                            targets: bossEnemy,
                                                                                             displayHeight: baseH * 0.75,
                                                                                             displayWidth: baseW * 1.15,
                                                                                             y: baseY + 85, 
@@ -338,7 +349,7 @@
                                                                                             onComplete: () => {
                                                                                                 
                                                                                                 scene.tweens.add({
-                                                                                                    targets: secondFormBoss,
+                                                                                                    targets: bossEnemy,
                                                                                                     displayHeight: baseH * 1.1,
                                                                                                     displayWidth: baseW * 0.9,
                                                                                                     y: -500, 
@@ -352,10 +363,10 @@
                                                                                                             darkBgOverlay = null;
                                                                                                         }
 
-                                                                                                        secondFormBoss.setDisplaySize(500, 500); 
+                                                                                                        bossEnemy.setDisplaySize(500, 500); 
                                                                                                         
                                                                                                         scene.tweens.add({
-                                                                                                            targets: secondFormBoss,
+                                                                                                            targets: bossEnemy,
                                                                                                             y: 480, 
                                                                                                             duration: 2500, 
                                                                                                             delay: 500, 
@@ -367,6 +378,9 @@
                                                                                                                 const bossNameText = scene.add.text(20, 25, "AWAKENED BOSS", { 
                                                                                                                     fontSize: '22px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 3 
                                                                                                                 }).setDepth(100);
+                                                                                                                
+                                                                                                                // ★ボスのUIを配列に保存しておく
+                                                                                                                bossUI = [bossHpBg, bossHpFill, bossNameText];
 
                                                                                                                 scene.tweens.add({
                                                                                                                     targets: bossHpFill,
@@ -447,7 +461,6 @@
                                 scene.time.delayedCall(1500, () => {
                                     heroText2.destroy();
 
-                                    // ★光り始めると同時にパートナーがヒーローに重なるように歩み寄る
                                     scene.tweens.add({
                                         targets: partner,
                                         x: hero.x,
@@ -473,15 +486,18 @@
                                         onComplete: () => {
                                             flash.destroy();
                                             
-                                            // ★引きに入る前に合体後キャラのセリフを追加
                                             const heroText3 = createDialog(scene, hero.x, hero.y - 70, "・・・殺す！");
                                             
                                             scene.time.delayedCall(2000, () => {
                                                 heroText3.destroy();
                                                 
-                                                // ★セリフが終わってからカメラを元に戻す（引きに入る）
                                                 scene.cameras.main.pan(360, 640, 1000, 'Power2');
                                                 scene.cameras.main.zoomTo(1, 1000, 'Power2');
+
+                                                // ★引き終わったら、宇宙への打ち上げ開始！
+                                                scene.time.delayedCall(1200, () => {
+                                                    transitionToShooter(scene, hero);
+                                                });
                                             });
                                         }
                                     });
@@ -490,6 +506,116 @@
                         }
                     });
                 });
+            });
+        }
+
+        // ★新実装：宇宙へ打ち上がりシューティングへ切り替え
+        function transitionToShooter(scene, hero) {
+            // 背景の古いUIなどを隠す
+            turnText.setVisible(false);
+            
+            // ★弾みをつけてヒーローとボスが上へカッ飛んでいく
+            scene.tweens.add({
+                targets: [hero, bossEnemy],
+                y: -300, // 画面上部へ吹き飛ぶ
+                duration: 800,
+                ease: 'Back.easeIn', // 少し下に沈み込んでから勢いよく飛ぶ
+                onComplete: () => {
+                    bossUI.forEach(ui => ui.setVisible(false));
+                    
+                    // 背景を真っ黒（宇宙）で塗りつぶす
+                    scene.add.rectangle(360, 640, 720, 1280, 0x000000).setDepth(250);
+                    
+                    // 星空パーティクルを下に向かって猛スピードで流す（＝カメラが上に進んでいる表現）
+                    scene.add.particles(0, -50, 'star', {
+                        x: { min: 0, max: 720 },
+                        y: 0,
+                        lifespan: 3000,
+                        speedY: { min: 1000, max: 3000 }, // 超高速スクロール
+                        scale: { min: 0.5, max: 2 },
+                        quantity: 15, // 大量の星
+                        blendMode: 'ADD'
+                    }).setDepth(251);
+
+                    // シューティングモード開始へ
+                    startShooterMode(scene, hero);
+                }
+            });
+        }
+
+        function startShooterMode(scene, hero) {
+            isShooterMode = true;
+            
+            // キャラを新しい背景の手前に出す
+            hero.setDepth(260);
+            bossEnemy.setDepth(260);
+            
+            // ヒーローは画面下部から登場
+            hero.x = 360;
+            hero.y = 1400;
+            scene.tweens.add({
+                targets: hero,
+                y: 1000,
+                duration: 1000,
+                ease: 'Power2'
+            });
+            
+            // ボスは上部から登場
+            bossEnemy.x = 360;
+            bossEnemy.y = -300;
+            scene.tweens.add({
+                targets: bossEnemy,
+                y: 250,
+                duration: 1000,
+                ease: 'Power2',
+                onComplete: () => {
+                    // ボスのHPバーを再表示
+                    bossUI.forEach(ui => {
+                        ui.setDepth(300);
+                        ui.setVisible(true);
+                    });
+                }
+            });
+
+            // ★シューティング用のオートショット
+            scene.time.addEvent({
+                delay: 150, // 0.15秒ごとに1発（超連射）
+                loop: true,
+                callback: () => {
+                    if (!isShooterMode || !hero.active) return;
+                    
+                    const bullet = scene.add.sprite(hero.x, hero.y - 50, 'arrow').setOrigin(0.5).setDepth(255);
+                    bullet.setDisplaySize(20, 50); // 通常の矢より少しシャープに
+                    scene.physics.add.existing(bullet);
+                    bullet.body.setVelocityY(-2000); // 弾速を高速化
+                    
+                    try { scene.sound.play('shoot'); } catch(e) {}
+                    
+                    // シンプルな当たり判定
+                    const checkHitEvent = scene.time.addEvent({
+                        delay: 20,
+                        loop: true,
+                        callback: () => {
+                            if (!bullet.active) { checkHitEvent.remove(); return; }
+                            
+                            if (bullet.y < -100) {
+                                bullet.destroy();
+                                checkHitEvent.remove();
+                            } else if (bossEnemy && bossEnemy.active) {
+                                // 弾がボスの位置に来たらヒット
+                                if (Math.abs(bullet.x - bossEnemy.x) < 150 && bullet.y < bossEnemy.y + 100) {
+                                    bullet.destroy();
+                                    checkHitEvent.remove();
+                                    try { scene.sound.play('hit'); } catch(e) {}
+                                    
+                                    // ヒットエフェクト（赤く点滅）
+                                    bossEnemy.setTint(0xff8888);
+                                    scene.time.delayedCall(50, () => bossEnemy.clearTint());
+                                }
+                            }
+                        }
+                    });
+                }
             });
         }
 
@@ -535,6 +661,15 @@
         }
 
         function handleDrag(pointer, gameObject, dragX, dragY) {
+            // ★シューティングモード時は自由移動（画面からはみ出さないように制限）
+            if (isShooterMode) {
+                if (gameObject.getData('isAllied')) {
+                    gameObject.x = Phaser.Math.Clamp(dragX, 50, 670);
+                    gameObject.y = Phaser.Math.Clamp(dragY, 100, 1180);
+                }
+                return;
+            }
+
             if (isTurnExecuting) return;
             gameObject.x = dragX;
             gameObject.y = dragY;
@@ -545,6 +680,9 @@
         }
 
         function handleDragEnd(pointer, gameObject) {
+            // ★シューティングモード時はドロップ処理を無視
+            if (isShooterMode) return;
+
             gameObject.setDepth(0);
             gameObject.getData('text').setDepth(0);
             
