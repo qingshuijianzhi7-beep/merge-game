@@ -44,6 +44,10 @@
             this.load.image('enemy', 'enemy.png');
             this.load.image('enemy2', 'enemy2.png'); 
             this.load.image('enemy2_roar', 'enemy2_roar.png'); 
+            // ★新しい画像を2つ読み込み
+            this.load.image('partner', 'partner.png'); 
+            this.load.image('superhero', 'superhero.png'); 
+            
             this.load.audio('shoot', 'shoot.mp3');
             this.load.audio('hit', 'hit.mp3');
             this.load.audio('crowned', 'crowned.mp3');
@@ -154,6 +158,15 @@
                     }).setOrigin(0.5).setDepth(100);
                 });
             }
+        }
+
+        // ★ふきだし用テキストを作成する関数
+        function createDialog(scene, x, y, textString) {
+            return scene.add.text(x, y, textString, { 
+                fontSize: '20px', fill: '#000', fontStyle: 'bold', 
+                backgroundColor: '#ffffff', padding: { x: 10, y: 5 },
+                stroke: '#000', strokeThickness: 2
+            }).setOrigin(0.5).setDepth(200);
         }
 
         function executeTurn(scene) {
@@ -288,9 +301,7 @@
                                                                     targetEnemy.setVisible(false);
                                                                     whiteSilhouette.destroy();
 
-                                                                    // ★位置をY:560からY:480へと少し上に変更
                                                                     const secondFormBoss = scene.add.sprite(360, 480, 'enemy2').setOrigin(0.5);
-                                                                    // ★咆哮時のサイズを大きすぎない500x500に縮小
                                                                     secondFormBoss.setDisplaySize(500, 500);
                                                                     secondFormBoss.setDepth(50);
 
@@ -318,7 +329,6 @@
                                                                                         shockwave.destroy();
                                                                                         secondFormBoss.setTexture('enemy2');
                                                                                         
-                                                                                        // ★ベースサイズと位置の基準も修正
                                                                                         const baseW = 500, baseH = 500, baseY = 480;
 
                                                                                         scene.tweens.add({
@@ -349,7 +359,6 @@
                                                                                                         
                                                                                                         scene.tweens.add({
                                                                                                             targets: secondFormBoss,
-                                                                                                            // ★最終的な着地位置もY:480に統一
                                                                                                             y: 480, 
                                                                                                             duration: 2500, 
                                                                                                             delay: 500, 
@@ -366,7 +375,11 @@
                                                                                                                     targets: bossHpFill,
                                                                                                                     width: hpBarWidth,
                                                                                                                     duration: 1500,
-                                                                                                                    ease: 'Power3.easeOut'
+                                                                                                                    ease: 'Power3.easeOut',
+                                                                                                                    onComplete: () => {
+                                                                                                                        // ★HPバーが伸びきった後、ヒーロー覚醒イベント開始
+                                                                                                                        startFusionEvent(scene);
+                                                                                                                    }
                                                                                                                 });
                                                                                                             }
                                                                                                         });
@@ -402,6 +415,83 @@
                         }
                     }
                 }
+            });
+        }
+
+        // ★新実装：合体進化イベント
+        function startFusionEvent(scene) {
+            const hero = alliedUnits.getChildren()[0];
+            if (!hero) return; // ヒーローがいなければ何もしない
+
+            // 1. カメラをヒーローにズーム（位置はそのまま）
+            scene.cameras.main.pan(hero.x, hero.y, 1000, 'Power2');
+            scene.cameras.main.zoomTo(2, 1000, 'Power2');
+
+            scene.time.delayedCall(1200, () => {
+                // 2. ヒーローの一言
+                const heroText1 = createDialog(scene, hero.x, hero.y - 50, "やばくね？");
+
+                scene.time.delayedCall(1500, () => {
+                    heroText1.destroy();
+
+                    // 3. 右画面外からパートナーがニュッと登場
+                    const partner = scene.add.sprite(hero.x + 200, hero.y, 'partner').setOrigin(0.5);
+                    partner.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
+                    partner.setDepth(hero.depth + 1);
+
+                    scene.tweens.add({
+                        targets: partner,
+                        x: hero.x + 70, // ヒーローの少し右でストップ
+                        duration: 800,
+                        ease: 'Power2.easeOut',
+                        onComplete: () => {
+                            // 4. パートナーのセリフ
+                            const partnerText = createDialog(scene, partner.x, partner.y - 50, "合体しよ！");
+
+                            scene.time.delayedCall(1500, () => {
+                                partnerText.destroy();
+
+                                // 5. ヒーローの返事
+                                const heroText2 = createDialog(scene, hero.x, hero.y - 50, "いいよ！");
+
+                                scene.time.delayedCall(1500, () => {
+                                    heroText2.destroy();
+
+                                    // 6. 光に包まれる（画面全体を覆う巨大な白い四角形）
+                                    // ※カメラがズームしているので通常よりかなり大きくする
+                                    const flash = scene.add.rectangle(hero.x, hero.y, 3000, 3000, 0xffffff).setOrigin(0.5).setDepth(200);
+                                    flash.setAlpha(0);
+
+                                    scene.tweens.add({
+                                        targets: flash,
+                                        alpha: 1,
+                                        duration: 800,
+                                        yoyo: true, // 光ってから消える
+                                        hold: 500, // 真っ白の状態で少し待つ
+                                        onYoyo: () => {
+                                            // ★画面が真っ白になっている瞬間に姿を変える
+                                            hero.setTexture('superhero');
+                                            hero.setDisplaySize(TILE_SIZE * 1.5, TILE_SIZE * 1.5); // 少し大きくする
+                                            partner.destroy(); // パートナーは消滅（合体）
+                                            
+                                            // ヒーローのレベル文字を非表示にする
+                                            if (hero.getData('text')) hero.getData('text').setVisible(false);
+                                        },
+                                        onComplete: () => {
+                                            flash.destroy();
+                                            
+                                            // 7. カメラを元の位置・元のサイズに戻す
+                                            scene.cameras.main.pan(360, 640, 1000, 'Power2');
+                                            scene.cameras.main.zoomTo(1, 1000, 'Power2');
+                                            
+                                            // ※この後に宇宙へのスクロールイベントを実装する準備が整います
+                                        }
+                                    });
+                                });
+                            });
+                        }
+                    });
+                });
             });
         }
 
@@ -512,4 +602,3 @@
     </script>
 </body>
 </html>
-
