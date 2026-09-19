@@ -171,7 +171,7 @@ function executeTeleportAttack(scene, count) {
     const baseW = 500;
     const baseH = 500;
 
-    // ★5回目(count === 4)は中央上に現れてミサイル準備！
+    // ★5回目(count === 4)は中央上に現れてミサイル発射！
     if (count === 4) {
         try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
         scene.tweens.add({
@@ -179,9 +179,8 @@ function executeTeleportAttack(scene, count) {
             displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, 
             duration: 300, ease: 'Expo.easeIn', 
             onComplete: () => {
-                // 中央のちょっと上に配置
                 bossEnemy.x = 360;
-                bossEnemy.y = -900; 
+                bossEnemy.y = -1000; // 少し高めに配置
                 
                 scene.time.delayedCall(200, () => {
                     try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
@@ -190,9 +189,13 @@ function executeTeleportAttack(scene, count) {
                         displayWidth: baseW, displayHeight: baseH, alpha: 1,
                         duration: 300, ease: 'Expo.easeOut', 
                         onComplete: () => {
-                            // ★ミサイル攻撃寸前！（今はここで2秒待機して最初に戻る）
-                            // ※次回ここにミサイル発射のコードを書きます
-                            scene.time.delayedCall(2000, () => executeTeleportAttack(scene, 0));
+                            // ★0.5秒タメてからミサイル発射！
+                            scene.time.delayedCall(500, () => {
+                                fireMissile(scene, bossEnemy.x, bossEnemy.y, () => {
+                                    // ミサイル処理が完全に終わったら（爆発したら）次の攻撃へループ
+                                    scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
+                                });
+                            });
                         }
                     });
                 });
@@ -209,7 +212,6 @@ function executeTeleportAttack(scene, count) {
         displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, 
         duration: 300, ease: 'Expo.easeIn', 
         onComplete: () => {
-            // ★瞬間移動の範囲を画面上から4/5（かなり下）までに拡大
             const randomX = Phaser.Math.Between(150, 570);
             const randomY = Phaser.Math.Between(-1200, -450); 
             bossEnemy.x = randomX;
@@ -223,7 +225,6 @@ function executeTeleportAttack(scene, count) {
                     duration: 300, ease: 'Expo.easeOut', 
                     onComplete: () => {
                         fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
-                        // 次の回へ
                         executeTeleportAttack(scene, count + 1);
                     }
                 });
@@ -232,10 +233,88 @@ function executeTeleportAttack(scene, count) {
     });
 }
 
+// ==========================================
+// ★新規追加：追尾ミサイル発射＆着弾爆発処理
+// ==========================================
+function fireMissile(scene, x, y, onComplete) {
+    try { scene.sound.play('shoot', { volume: 2.0 }); } catch(e) {} 
+    
+    // とりあえずボス画像を細長くしてミサイルっぽくする（あとで画像変更可能）
+    const missile = scene.add.sprite(x, y, 'enemy2').setOrigin(0.5).setDepth(255);
+    missile.setDisplaySize(40, 150); 
+    scene.physics.add.existing(missile);
+    
+    let speed = 550; // ミサイルの飛ぶ速度
+    let currentAngle = Math.PI / 2; // 最初は真下(90度)を向いて発射
+
+    const trackEvent = scene.time.addEvent({
+        delay: 20, loop: true,
+        callback: () => {
+            if (!missile.active || !isShooterMode) { trackEvent.remove(); return; }
+
+            // 1. ほんの少しだけヒーローを追尾する処理
+            if (activeHero && activeHero.active) {
+                // ヒーローがいる方向の角度を計算
+                const targetAngle = Phaser.Math.Angle.Between(missile.x, missile.y, activeHero.x, activeHero.y);
+                // 現在の角度と目標の角度の差分を計算
+                let diff = Phaser.Math.Angle.Wrap(targetAngle - currentAngle);
+                // 0.04ずつゆっくりと角度を変える（この数字を大きくするとホーミングがキツくなる）
+                currentAngle += diff * 0.04; 
+            }
+
+            // ミサイルの向きと進む方向を更新
+            missile.rotation = currentAngle + Math.PI / 2; 
+            missile.body.setVelocity(Math.cos(currentAngle) * speed, Math.sin(currentAngle) * speed);
+
+            // 2. ヒーローとの当たり判定（直撃したら大ダメージ）
+            if (activeHero && activeHero.active) {
+                const dist = Phaser.Math.Distance.Between(missile.x, missile.y, activeHero.x, activeHero.y);
+                if (dist < 40) {
+                    explodeMissile(scene, missile, trackEvent, onComplete);
+                    takeHeroShooterDamage(scene, 200); // 直撃は痛い
+                    return;
+                }
+            }
+
+            // 3. 画面の端（上下左右）に着弾したら爆発してばらまく！
+            if (missile.y > 0 || missile.y < -1350 || missile.x < 0 || missile.x > 720) {
+                explodeMissile(scene, missile, trackEvent, onComplete);
+            }
+        }
+    });
+}
+
+// ミサイルの爆発処理（音、光、弾のばらまき）
+function explodeMissile(scene, missile, trackEvent, onComplete) {
+    trackEvent.remove(); // 追尾を止める
+    const exX = missile.x;
+    const exY = missile.y;
+    missile.destroy(); // ミサイル本体を消す
+
+    // 爆発音を鳴らす（game.jsで読み込んだもの）
+    try { scene.sound.play('explosion', { volume: 2.0 }); } catch(e) {}
+    
+    // 爆発のフラッシュ演出（オレンジ色の円がパッと広がる）
+    const flash = scene.add.circle(exX, exY, 120, 0xff8800).setDepth(260);
+    scene.tweens.add({
+        targets: flash, alpha: 0, scale: 2.5, duration: 300, ease: 'Power2',
+        onComplete: () => flash.destroy()
+    });
+
+    // 爆発地点を中心に、いつもの円状弾をばらまく！
+    fireCircleBullets(scene, exX, exY);
+
+    // 爆発が終わったことを報告して、ボスの次の攻撃へ
+    if (onComplete) onComplete();
+}
+
+// ==========================================
+// 円状に弾をばらまく処理（10%減らして32発に）
+// ==========================================
 function fireCircleBullets(scene, x, y) {
     try { scene.sound.play('shoot'); } catch(e) {}
     
-    const numBullets = 36; 
+    const numBullets = 32; // ★36発から約10%削減
     const speed = 400; 
 
     for (let i = 0; i < numBullets; i++) {
@@ -269,6 +348,7 @@ function fireCircleBullets(scene, x, y) {
     }
 }
 
+// ダメージ処理
 function takeHeroShooterDamage(scene, amount) {
     globalHP -= amount;
     if (globalHP < 0) globalHP = 0;
@@ -295,6 +375,7 @@ function takeHeroShooterDamage(scene, amount) {
     }
 }
 
+// ヒーローの自動攻撃
 function startAutoShooting(scene, hero) {
     scene.time.addEvent({
         delay: 150, 
