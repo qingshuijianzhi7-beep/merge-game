@@ -165,9 +165,6 @@ function startBossAttack(scene) {
     executeTeleportAttack(scene, 0);
 }
 
-// ==========================================
-// ★ボスの瞬間移動＆攻撃ループ（修正版）
-// ==========================================
 function executeTeleportAttack(scene, count) {
     if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
 
@@ -209,11 +206,8 @@ function executeTeleportAttack(scene, count) {
 
     scene.tweens.add({
         targets: bossEnemy,
-        displayWidth: 0,
-        displayHeight: baseH * 1.5, 
-        alpha: 0, 
-        duration: 300, // ★0.4秒から0.3秒に短縮
-        ease: 'Expo.easeIn', 
+        displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, 
+        duration: 300, ease: 'Expo.easeIn', 
         onComplete: () => {
             // ★瞬間移動の範囲を画面上から4/5（かなり下）までに拡大
             const randomX = Phaser.Math.Between(150, 570);
@@ -221,16 +215,12 @@ function executeTeleportAttack(scene, count) {
             bossEnemy.x = randomX;
             bossEnemy.y = randomY;
 
-            scene.time.delayedCall(200, () => { // ★待機も0.3秒から0.2秒に短縮
+            scene.time.delayedCall(200, () => { 
                 try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
-
                 scene.tweens.add({
                     targets: bossEnemy,
-                    displayWidth: baseW,
-                    displayHeight: baseH,
-                    alpha: 1,
-                    duration: 300, // ★0.4秒から0.3秒に短縮
-                    ease: 'Expo.easeOut', 
+                    displayWidth: baseW, displayHeight: baseH, alpha: 1,
+                    duration: 300, ease: 'Expo.easeOut', 
                     onComplete: () => {
                         fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
                         // 次の回へ
@@ -328,7 +318,6 @@ function startAutoShooting(scene, hero) {
                         bullet.destroy();
                         checkHitEvent.remove();
                     } else if (bossEnemy && bossEnemy.active) {
-                        // 右側の当たり判定を絞った調整
                         if (bullet.x > bossEnemy.x - 120 && bullet.x < bossEnemy.x + 90 && bullet.y < bossEnemy.y + 100 && bullet.y > bossEnemy.y - 120) {
                             bullet.destroy();
                             checkHitEvent.remove();
