@@ -28,19 +28,10 @@ const START_X = (720 - (TILE_SIZE * COLS)) / 2;
 const ENEMY_START_Y = 120;
 const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40;
 
-// ==========================================
-// Phaser ゲーム設定・初期化
-// ==========================================
-const config = {
-    type: Phaser.AUTO,
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 720, height: 1280, parent: 'game-container' },
-    backgroundColor: '#1e1e1e',
-    physics: { default: 'arcade', arcade: { debug: false } },
-    scene: { preload: preload, create: create, update: update }
-};
 
-const game = new Phaser.Game(config);
-
+// ==========================================
+// 前半：パズルと進行の処理
+// ==========================================
 function preload() {
     this.load.image('hero', 'hero.png');
     this.load.image('arrow', 'arrow.png');
@@ -110,9 +101,6 @@ function create() {
 
 function update() {}
 
-// ==========================================
-// 前半：パズルと進行の処理
-// ==========================================
 function setupGrid(scene, config, rows, cols) {
     for (let r = 0; r < rows; r++) {
         for (let c = 0; c < cols; c++) {
@@ -316,7 +304,7 @@ function handleAttack(scene, onComplete) {
                                                                                                         bossUI = [bossHpBg, bossHpFill, bossNameText];
                                                                                                         scene.tweens.add({ targets: bossHpFill, width: hpBarWidth, duration: 1500, ease: 'Power3.easeOut', 
                                                                                                             onComplete: () => { 
-                                                                                                                // ★ここから boss.js にバトンタッチ！
+                                                                                                                // ★ここで boss.js にバトンタッチ！
                                                                                                                 startFusionEvent(scene); 
                                                                                                             } 
                                                                                                         });
@@ -441,3 +429,16 @@ function returnAllUnitToPosition(unit) {
     unit.getData('text').x = worldX; unit.getData('text').y = worldY + 30; 
 }
 
+
+// ==========================================
+// ★Phaser起動処理（必ずファイルの一番下に置く！）
+// ==========================================
+const config = {
+    type: Phaser.AUTO,
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 720, height: 1280, parent: 'game-container' },
+    backgroundColor: '#1e1e1e',
+    physics: { default: 'arcade', arcade: { debug: false } },
+    scene: { preload: preload, create: create, update: update }
+};
+
+const game = new Phaser.Game(config);
