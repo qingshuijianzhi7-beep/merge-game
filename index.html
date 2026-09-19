@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Teleport Delay & Hero Damage</title>
+    <title>Merge Shoot RPG - Boss Battle Update</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -39,8 +39,14 @@
         let isShooterMode = false;
         let spaceYOffset = 0; 
         
-        let bossHP = 10000;
-        const bossMaxHP = 10000;
+        // ★ボスをさらに固くしました（10000 -> 50000）
+        let bossHP = 50000;
+        const bossMaxHP = 50000;
+
+        // ★制限時間のタイマー用変数
+        let timeLeft = 60;
+        let timerTextUI = null;
+        let timerEvent = null;
 
         const COLS = 7, ENEMY_ROWS = 7, ALLIED_ROWS = 3;
         const TILE_SIZE = 90;
@@ -58,13 +64,12 @@
             this.load.image('superhero', 'superhero.png'); 
             
             this.load.audio('shoot', 'shoot.mp3');
-            this.load.audio('hit', 'hit.mp3'); // ボスに当たった音
+            this.load.audio('hit', 'hit.mp3');
             this.load.audio('crowned', 'crowned.mp3');
             this.load.audio('roar', 'roar.mp3'); 
             this.load.audio('alarm', 'alarm.mp3'); 
             this.load.audio('warp_out', 'warp_out.mp3'); 
             this.load.audio('warp_in', 'warp_in.mp3'); 
-            // ★ヒーローがダメージを受けた時の専用音を追加（フォルダに用意してください）
             this.load.audio('hero_hit', 'hero_hit.mp3'); 
         }
 
@@ -104,6 +109,9 @@
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
 
+            // ==========================================
+            // ★超快適スキップボタン（時間を20倍速に進める）
+            // ==========================================
             const skipBtn = this.add.text(10, 10, '⏩ SKIP TO BOSS', { 
                 fontSize: '20px', fill: '#fff', backgroundColor: '#d32f2f', padding: { x: 10, y: 10 } 
             }).setInteractive().setDepth(9999);
@@ -316,7 +324,8 @@
                                                                                                                 const hpBarWidth = 680;
                                                                                                                 const bossHpBg = scene.add.rectangle(20, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(100);
                                                                                                                 const bossHpFill = scene.add.rectangle(20, 60, 0, 24, 0xff0000).setOrigin(0, 0.5).setDepth(101);
-                                                                                                                const bossNameText = scene.add.text(20, 25, "AWAKENED BOSS", { fontSize: '22px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 3 }).setDepth(100);
+                                                                                                                // ★名前を消すため、空文字に変更
+                                                                                                                const bossNameText = scene.add.text(20, 25, "", { fontSize: '22px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 3 }).setDepth(100);
                                                                                                                 bossUI = [bossHpBg, bossHpFill, bossNameText];
                                                                                                                 scene.tweens.add({ targets: bossHpFill, width: hpBarWidth, duration: 1500, ease: 'Power3.easeOut', onComplete: () => { startFusionEvent(scene); } });
                                                                                                             }
@@ -452,7 +461,8 @@
                     const hpBarWidth = 660;
                     const bossHpBg = scene.add.rectangle(30, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     const bossHpFill = scene.add.rectangle(30, 60, 0, 24, 0xff0000).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0).setVisible(false);
-                    const bossNameText = scene.add.text(30, 25, "AWAKENED SHUN", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                    // ★ボスの名前を消しました
+                    const bossNameText = scene.add.text(30, 25, "", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     bossUI = [bossHpBg, bossHpFill, bossNameText];
 
                     bossHP = bossMaxHP;
@@ -460,8 +470,15 @@
                     
                     const heroHpBg = scene.add.rectangle(30, 1220, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     const heroHpFill = scene.add.rectangle(30, 1220, 0, 24, 0x00e676).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0).setVisible(false);
-                    const heroNameText = scene.add.text(30, 1185, "SUPER SOGO   HP: 1000 / 1000", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#00e676', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                    // ★ヒーロー側も名前を消し、HP表示のみに
+                    const heroNameText = scene.add.text(30, 1185, "HP: 1000 / 1000", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#00e676', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     heroShooterUI = [heroHpBg, heroHpFill, heroNameText];
+
+                    // ★タイマーテキストの準備
+                    timeLeft = 60;
+                    timerTextUI = scene.add.text(30, 100, `ゲームオーバーまであと ${timeLeft}秒`, { 
+                        fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '26px', fill: '#ff5555', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
+                    }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
 
                     const instructionText = scene.add.text(360, -640, "そーごを操作して、\nしゅんを倒せ！！", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '60px', fill: '#ffeb3b', fontStyle: 'bold', align: 'center', stroke: '#ff0000', strokeThickness: 10, shadow: { offsetX: 4, offsetY: 4, color: '#000', blur: 8, fill: true } }).setOrigin(0.5).setDepth(400);
 
@@ -479,6 +496,23 @@
                                 scene.tweens.add({
                                     targets: [bossHpFill, heroHpFill], width: hpBarWidth, duration: 1200, ease: 'Power3.easeOut',
                                     onComplete: () => {
+                                        // ★HPバーが伸びたらタイマー表示＆カウントダウン開始
+                                        timerTextUI.setVisible(true);
+                                        timerEvent = scene.time.addEvent({
+                                            delay: 1000, loop: true,
+                                            callback: () => {
+                                                if (!isShooterMode) return;
+                                                timeLeft--;
+                                                if (timerTextUI) timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
+                                                if (timeLeft <= 0) {
+                                                    isShooterMode = false;
+                                                    timerEvent.remove();
+                                                    scene.add.text(360, -640, 'GAME OVER', { fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 }).setOrigin(0.5).setDepth(1000);
+                                                    if (activeHero) activeHero.destroy();
+                                                }
+                                            }
+                                        });
+
                                         startAutoShooting(scene, hero);
                                         scene.time.delayedCall(1000, () => startBossAttack(scene));
                                     }
@@ -505,7 +539,8 @@
             const baseW = 500;
             const baseH = 500;
 
-            try { scene.sound.play('warp_out'); } catch(e) {}
+            // ★消える音（ボリュームアップ）
+            try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
 
             scene.tweens.add({
                 targets: bossEnemy,
@@ -520,9 +555,9 @@
                     bossEnemy.x = randomX;
                     bossEnemy.y = randomY;
 
-                    // ★「消える」と「現れる」の間に 0.3秒(300ms) の間（タメ）を作る
                     scene.time.delayedCall(300, () => {
-                        try { scene.sound.play('warp_in'); } catch(e) {}
+                        // ★現れる音（ボリュームアップ）
+                        try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
 
                         scene.tweens.add({
                             targets: bossEnemy,
@@ -544,7 +579,8 @@
         function fireCircleBullets(scene, x, y) {
             try { scene.sound.play('shoot'); } catch(e) {}
             
-            const numBullets = 20; 
+            // ★弾幕を大増量（20発 -> 36発に。10度刻みの全方位）
+            const numBullets = 36; 
             const speed = 400; 
 
             for (let i = 0; i < numBullets; i++) {
@@ -569,7 +605,6 @@
                             if (dist < 35) { 
                                 bullet.destroy();
                                 checkEvent.remove();
-                                // ★ヒーロー被弾時の専用音を鳴らす
                                 try { scene.sound.play('hero_hit'); } catch(e) {}
                                 takeHeroShooterDamage(scene, 100); 
                             }
@@ -585,7 +620,7 @@
             
             if (heroShooterUI.length > 0) {
                 heroShooterUI[1].width = 660 * (globalHP / 1000);
-                heroShooterUI[2].setText(`SUPER SOGO   HP: ${globalHP} / 1000`);
+                heroShooterUI[2].setText(`HP: ${globalHP} / 1000`);
             }
 
             if (activeHero) {
@@ -597,6 +632,7 @@
 
             if (globalHP <= 0 && isShooterMode) {
                 isShooterMode = false;
+                if (timerEvent) timerEvent.remove();
                 scene.add.text(360, -640, 'GAME OVER', { 
                     fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
                 }).setOrigin(0.5).setDepth(1000);
@@ -627,7 +663,8 @@
                                 bullet.destroy();
                                 checkHitEvent.remove();
                             } else if (bossEnemy && bossEnemy.active) {
-                                if (Math.abs(bullet.x - bossEnemy.x) < 150 && bullet.y < bossEnemy.y + 100) {
+                                // ★ボスのヒットボックス（右側の判定を絞りました）
+                                if (bullet.x > bossEnemy.x - 120 && bullet.x < bossEnemy.x + 90 && bullet.y < bossEnemy.y + 100 && bullet.y > bossEnemy.y - 120) {
                                     bullet.destroy();
                                     checkHitEvent.remove();
                                     try { scene.sound.play('hit'); } catch(e) {}
@@ -641,6 +678,7 @@
                                     
                                     if (bossHP <= 0 && isShooterMode) {
                                         isShooterMode = false;
+                                        if (timerEvent) timerEvent.remove();
                                         scene.add.text(360, -640, 'YOU WIN!', { 
                                             fontSize: '80px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
                                         }).setOrigin(0.5).setDepth(1000);
