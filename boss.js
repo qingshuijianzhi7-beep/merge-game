@@ -1,4 +1,4 @@
-// ==========================================
+/// ==========================================
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
 
@@ -165,17 +165,46 @@ function startBossAttack(scene) {
     executeTeleportAttack(scene, 0);
 }
 
+// ==========================================
+// ★ボスの瞬間移動＆攻撃ループ（修正版）
+// ==========================================
 function executeTeleportAttack(scene, count) {
     if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
-    
-    if (count >= 3) {
-        scene.time.delayedCall(1500, () => executeTeleportAttack(scene, 0));
-        return;
-    }
 
     const baseW = 500;
     const baseH = 500;
 
+    // ★5回目(count === 4)は中央上に現れてミサイル準備！
+    if (count === 4) {
+        try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
+        scene.tweens.add({
+            targets: bossEnemy,
+            displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, 
+            duration: 300, ease: 'Expo.easeIn', 
+            onComplete: () => {
+                // 中央のちょっと上に配置
+                bossEnemy.x = 360;
+                bossEnemy.y = -900; 
+                
+                scene.time.delayedCall(200, () => {
+                    try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
+                    scene.tweens.add({
+                        targets: bossEnemy,
+                        displayWidth: baseW, displayHeight: baseH, alpha: 1,
+                        duration: 300, ease: 'Expo.easeOut', 
+                        onComplete: () => {
+                            // ★ミサイル攻撃寸前！（今はここで2秒待機して最初に戻る）
+                            // ※次回ここにミサイル発射のコードを書きます
+                            scene.time.delayedCall(2000, () => executeTeleportAttack(scene, 0));
+                        }
+                    });
+                });
+            }
+        });
+        return;
+    }
+
+    // ★1〜4回目（通常のワープ＆円状攻撃）
     try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
 
     scene.tweens.add({
@@ -183,15 +212,16 @@ function executeTeleportAttack(scene, count) {
         displayWidth: 0,
         displayHeight: baseH * 1.5, 
         alpha: 0, 
-        duration: 400,
+        duration: 300, // ★0.4秒から0.3秒に短縮
         ease: 'Expo.easeIn', 
         onComplete: () => {
+            // ★瞬間移動の範囲を画面上から4/5（かなり下）までに拡大
             const randomX = Phaser.Math.Between(150, 570);
-            const randomY = Phaser.Math.Between(-1150, -770); 
+            const randomY = Phaser.Math.Between(-1200, -450); 
             bossEnemy.x = randomX;
             bossEnemy.y = randomY;
 
-            scene.time.delayedCall(300, () => {
+            scene.time.delayedCall(200, () => { // ★待機も0.3秒から0.2秒に短縮
                 try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
 
                 scene.tweens.add({
@@ -199,10 +229,11 @@ function executeTeleportAttack(scene, count) {
                     displayWidth: baseW,
                     displayHeight: baseH,
                     alpha: 1,
-                    duration: 400,
+                    duration: 300, // ★0.4秒から0.3秒に短縮
                     ease: 'Expo.easeOut', 
                     onComplete: () => {
                         fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
+                        // 次の回へ
                         executeTeleportAttack(scene, count + 1);
                     }
                 });
@@ -297,7 +328,6 @@ function startAutoShooting(scene, hero) {
                         bullet.destroy();
                         checkHitEvent.remove();
                     } else if (bossEnemy && bossEnemy.active) {
-                        // 右側の当たり判定を絞った調整
                         if (bullet.x > bossEnemy.x - 120 && bullet.x < bossEnemy.x + 90 && bullet.y < bossEnemy.y + 100 && bullet.y > bossEnemy.y - 120) {
                             bullet.destroy();
                             checkHitEvent.remove();
@@ -324,4 +354,5 @@ function startAutoShooting(scene, hero) {
             });
         }
     });
+}
 }
