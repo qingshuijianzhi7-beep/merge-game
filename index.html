@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Epic Space Transition</title>
+    <title>Merge Shoot RPG - Shooter Boss Attack</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -30,19 +30,24 @@
         const MAX_HP = 1000;
         let globalHP = 1000, hpBarFill, hpText;
 
+        let darkBgOverlay = null;
+        
+        // ★シューティング用グローバル変数
+        let bossEnemy = null; 
+        let activeHero = null; // 操作中のヒーロー
+        let bossUI = [];
+        let heroShooterUI = []; 
+        let isShooterMode = false;
+        let spaceYOffset = 0; 
+        
+        let bossHP = 10000;
+        const bossMaxHP = 10000;
+
         const COLS = 7, ENEMY_ROWS = 7, ALLIED_ROWS = 3;
         const TILE_SIZE = 90;
         const START_X = (720 - (TILE_SIZE * COLS)) / 2;
         const ENEMY_START_Y = 120;
         const ALLIED_START_Y = ENEMY_START_Y + (ENEMY_ROWS * TILE_SIZE) + 40;
-
-        let darkBgOverlay = null;
-        
-        let bossEnemy = null; 
-        let bossUI = [];
-        let heroShooterUI = []; 
-        let isShooterMode = false;
-        let spaceYOffset = 0; 
 
         function preload() {
             this.load.image('hero', 'hero.png');
@@ -91,11 +96,79 @@
 
             const attackBtn = this.add.circle(620, uiY, 60, 0xff3d00).setInteractive();
             this.add.text(620, uiY, 'FIRE!', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
-            
             attackBtn.on('pointerdown', () => executeTurn(this));
 
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
+
+            // ==========================================
+            // ★開発用スキップボタン（クリックで即シューティング）
+            // ==========================================
+            const skipBtn = this.add.text(10, 10, '⏩ SKIP TO BOSS', { 
+                fontSize: '20px', fill: '#fff', backgroundColor: '#d32f2f', padding: { x: 10, y: 10 } 
+            }).setInteractive().setDepth(9999);
+
+            skipBtn.on('pointerdown', () => {
+                skipBtn.destroy();
+                
+                // 全てのアニメーションとイベントを強制停止
+                this.tweens.killAll(); 
+                this.time.removeAllEvents();
+
+                // UIと盤面を覆い隠す
+                this.add.rectangle(360, 640, 720, 2560, 0x000000).setOrigin(0.5).setDepth(240);
+
+                // カメラ位置を宇宙へ移動
+                this.cameras.main.scrollY = -1280;
+                spaceYOffset = -1280; 
+
+                // 星空を生成
+                this.add.particles(0, -1400, 'star', {
+                    x: { min: 0, max: 720 },
+                    y: 0,
+                    lifespan: 3000,
+                    speedY: { min: 1000, max: 3000 },
+                    scale: { min: 0.5, max: 1.0 }, 
+                    alpha: { min: 0.3, max: 0.8 },
+                    quantity: 15,
+                    blendMode: 'ADD'
+                }).setDepth(251);
+
+                // ヒーローを配置
+                const hero = this.add.sprite(360, -280, 'superhero').setOrigin(0.5).setDisplaySize(TILE_SIZE * 1.5, TILE_SIZE * 1.5).setDepth(260);
+                hero.setData({ isAllied: true, active: true });
+                this.input.setDraggable(hero);
+                activeHero = hero;
+
+                // ボスを配置
+                bossEnemy = this.add.sprite(360, -1030, 'enemy2').setOrigin(0.5).setDisplaySize(500, 500).setDepth(260);
+                bossEnemy.setData({ active: true });
+
+                // UIを直接描画
+                const hpBarWidth = 660;
+                const bossHpBg = this.add.rectangle(30, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
+                const bossHpFill = this.add.rectangle(30, 60, hpBarWidth, 24, 0xff0000).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0);
+                const bossNameText = this.add.text(30, 25, "AWAKENED SHUN", { 
+                    fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
+                }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
+                bossUI = [bossHpBg, bossHpFill, bossNameText];
+
+                globalHP = 1000;
+                bossHP = bossMaxHP;
+
+                const heroHpBg = this.add.rectangle(30, 1220, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
+                const heroHpFill = this.add.rectangle(30, 1220, hpBarWidth, 24, 0x00e676).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0);
+                const heroNameText = this.add.text(30, 1185, "SUPER SOGO   HP: 1000 / 1000", { 
+                    fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#00e676', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
+                }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
+                heroShooterUI = [heroHpBg, heroHpFill, heroNameText];
+
+                isShooterMode = true;
+                startAutoShooting(this, activeHero);
+                
+                // ★直接ボスの攻撃ルーチンをスタート
+                this.time.delayedCall(1000, () => startBossAttack(this));
+            });
         }
 
         function update() {}
@@ -113,7 +186,6 @@
         function spawnAlliedUnit(scene, level, type, gridX, gridY, hp) {
             const worldX = START_X + gridX * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ALLIED_START_Y + gridY * TILE_SIZE + TILE_SIZE / 2;
-            
             let unit;
             try {
                 unit = scene.add.sprite(worldX, worldY, 'hero').setOrigin(0.5);
@@ -121,11 +193,9 @@
             } catch (e) {
                 unit = scene.add.rectangle(worldX, worldY, TILE_SIZE - 10, TILE_SIZE - 10, 0x90caf9).setOrigin(0.5);
             }
-            
             unit.setInteractive();
             scene.input.setDraggable(unit);
             unit.setData({ isAllied: true, level: level, type: type, gridX: gridX, gridY: gridY, hp: hp });
-            
             const text = scene.add.text(worldX, worldY + 30, `Lv${level}`, { fontSize: '20px', fill: '#fff', fontStyle: 'bold', stroke: '#000', strokeThickness: 3 }).setOrigin(0.5);
             unit.setData('text', text);
             alliedUnits.add(unit);
@@ -135,16 +205,12 @@
         function spawnEnemyUnit(scene, level, type, gridX, gridY, hp) {
             const worldX = START_X + gridX * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ENEMY_START_Y + gridY * TILE_SIZE + TILE_SIZE / 2;
-            
             const unit = scene.add.sprite(worldX, worldY, 'enemy').setOrigin(0.5);
             unit.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
-            
             unit.setData({ isAllied: false, hp: hp, maxHp: hp, level: level, gridX: gridX, gridY: gridY, type: type });
-            
             const hpTxt = scene.add.text(worldX - 12, worldY - 40, `${hp}`, { fontSize: '14px', fill: '#fff', fontStyle: 'bold' }).setOrigin(1, 0.5);
             const bgBar = scene.add.rectangle(worldX - 8, worldY - 40, 36, 6, 0x555555).setOrigin(0, 0.5);
             const hpBar = scene.add.rectangle(worldX - 8, worldY - 40, 36, 6, 0xff0000).setOrigin(0, 0.5);
-            
             unit.setData('ui', [hpTxt, bgBar, hpBar]);
             enemyUnits.add(unit);
             return unit;
@@ -162,25 +228,19 @@
                     scene.tweens.add({ targets: hero, y: hero.y - 60, duration: 200, yoyo: true });
                     scene.tweens.add({ targets: hero, angle: 90, duration: 400 });
                 });
-                
                 scene.time.delayedCall(500, () => {
-                    scene.add.text(360, 640, 'GAME OVER', { 
-                        fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
-                    }).setOrigin(0.5).setDepth(100);
+                    scene.add.text(360, 640, 'GAME OVER', { fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 }).setOrigin(0.5).setDepth(100);
                 });
             }
         }
 
         function createDialog(scene, x, y, textString) {
-            return scene.add.text(x, y, textString, { 
-                fontSize: '36px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 
-            }).setOrigin(0.5).setDepth(200);
+            return scene.add.text(x, y, textString, { fontSize: '36px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 }).setOrigin(0.5).setDepth(200);
         }
 
         function executeTurn(scene) {
             if (isTurnExecuting) return;
             isTurnExecuting = true;
-
             handleAttack(scene, () => {
                 moveEnemiesForward(scene, () => {
                     turn++;
@@ -193,7 +253,6 @@
         function handleAttack(scene, onComplete) {
             const allies = alliedUnits.getChildren();
             const enemies = enemyUnits.getChildren();
-            
             if (allies.length === 0) { if(onComplete) onComplete(); return; }
 
             const unit = allies[0];
@@ -212,24 +271,19 @@
             } catch(e) {
                 arrow = scene.add.rectangle(unit.x, unit.y, 8, 80, 0xffea00).setOrigin(0.5);
             }
-
             scene.physics.add.existing(arrow);
             arrow.body.setVelocityY(-1200);
-
             try { scene.sound.play('shoot'); } catch(e) {}
 
             const damage = unit.getData('level') * 25; 
             let hitDone = false;
 
             const updateEvent = scene.time.addEvent({
-                delay: 20,
-                loop: true,
+                delay: 20, loop: true,
                 callback: () => {
                     if (arrow.y < -50) {
-                        arrow.destroy();
-                        updateEvent.remove();
-                        if (onComplete) onComplete(); 
-                        return;
+                        arrow.destroy(); updateEvent.remove();
+                        if (onComplete) onComplete(); return;
                     }
 
                     if (targetEnemy && targetEnemy.active && !hitDone) {
@@ -246,29 +300,17 @@
                             if (newHP <= 0) {
                                 targetEnemy.setData('hp', 0);
                                 const ui = targetEnemy.getData('ui');
-                                ui[0].setText(`0`);
-                                ui[2].width = 0;
+                                ui[0].setText(`0`); ui[2].width = 0;
 
                                 scene.tweens.add({
-                                    targets: targetEnemy,
-                                    x: targetEnemy.x + 15,
-                                    duration: 50,
-                                    yoyo: true,
-                                    repeat: 5,
+                                    targets: targetEnemy, x: targetEnemy.x + 15, duration: 50, yoyo: true, repeat: 5,
                                     onComplete: () => {
-                                        
                                         darkBgOverlay = scene.add.rectangle(360, 640, 720, 1280, 0x000000, 0.8).setDepth(40);
-                                        
                                         targetEnemy.setDepth(50);
                                         ui.forEach(u => u.setVisible(false));
 
                                         scene.tweens.add({
-                                            targets: targetEnemy,
-                                            x: 360,
-                                            y: 640,
-                                            displayWidth: 640,
-                                            displayHeight: 640,
-                                            duration: 1000,
+                                            targets: targetEnemy, x: 360, y: 640, displayWidth: 640, displayHeight: 640, duration: 1000,
                                             onComplete: () => {
                                                 const dialogueText = scene.add.text(360, 1050, "あれ？僕誕生日だよね？？", { 
                                                     fontSize: '36px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 5 
@@ -276,20 +318,16 @@
 
                                                 scene.time.delayedCall(3000, () => {
                                                     dialogueText.setText("なんで攻撃されるの？？");
-
                                                     scene.time.delayedCall(3000, () => {
                                                         dialogueText.setText("許さん。殺す！");
-                                                        
                                                         scene.time.delayedCall(2000, () => {
                                                             dialogueText.setVisible(false);
-
                                                             try { scene.sound.play('crowned'); } catch(e) {}
 
                                                             const whiteSilhouette = scene.add.sprite(targetEnemy.x, targetEnemy.y, 'enemy').setOrigin(0.5);
                                                             whiteSilhouette.setDisplaySize(targetEnemy.displayWidth, targetEnemy.displayHeight);
                                                             whiteSilhouette.setTintFill(0xffffff);
-                                                            whiteSilhouette.setAlpha(0); 
-                                                            whiteSilhouette.setDepth(targetEnemy.depth + 1);
+                                                            whiteSilhouette.setAlpha(0); whiteSilhouette.setDepth(targetEnemy.depth + 1);
                                                             
                                                             const targetBossX = targetEnemy.x + 120;
                                                             const targetBossY = targetEnemy.y - 180;
@@ -297,99 +335,46 @@
                                                             scene.tweens.add({ targets: whiteSilhouette, x: targetBossX, y: targetBossY, duration: 1500, ease: 'Power2' });
 
                                                             const screenLight = scene.add.rectangle(360, 640, 720, 1280, 0xffffff).setOrigin(0.5);
-                                                            screenLight.setAlpha(0);
-                                                            screenLight.setDepth(100);
+                                                            screenLight.setAlpha(0); screenLight.setDepth(100);
 
                                                             scene.tweens.add({
-                                                                targets: [whiteSilhouette, screenLight],
-                                                                alpha: 1, 
-                                                                duration: 1500,
-                                                                ease: 'Power2',
+                                                                targets: [whiteSilhouette, screenLight], alpha: 1, duration: 1500, ease: 'Power2',
                                                                 onComplete: () => {
-                                                                    targetEnemy.setVisible(false);
-                                                                    whiteSilhouette.destroy();
-
+                                                                    targetEnemy.setVisible(false); whiteSilhouette.destroy();
                                                                     bossEnemy = scene.add.sprite(360, 480, 'enemy2').setOrigin(0.5);
-                                                                    bossEnemy.setDisplaySize(500, 500);
-                                                                    bossEnemy.setDepth(50);
+                                                                    bossEnemy.setDisplaySize(500, 500); bossEnemy.setDepth(50);
 
                                                                     scene.time.delayedCall(1000, () => {
                                                                         scene.tweens.add({
-                                                                            targets: screenLight,
-                                                                            alpha: 0,
-                                                                            duration: 2500,
-                                                                            ease: 'Linear',
+                                                                            targets: screenLight, alpha: 0, duration: 2500, ease: 'Linear',
                                                                             onComplete: () => {
-                                                                                
                                                                                 bossEnemy.setTexture('enemy2_roar');
                                                                                 try { scene.sound.play('roar'); } catch(e) {} 
-                                                                                
                                                                                 scene.cameras.main.shake(1500, 0.02);
 
                                                                                 const shockwave = scene.add.circle(bossEnemy.x, bossEnemy.y + 40, 20).setStrokeStyle(8, 0xffffff, 1).setDepth(60);
                                                                                 scene.tweens.add({ 
-                                                                                    targets: shockwave, 
-                                                                                    radius: 500,
-                                                                                    alpha: 0, 
-                                                                                    duration: 1500, 
-                                                                                    ease: 'Cubic.easeOut', 
+                                                                                    targets: shockwave, radius: 500, alpha: 0, duration: 1500, ease: 'Cubic.easeOut', 
                                                                                     onComplete: () => {
-                                                                                        shockwave.destroy();
-                                                                                        bossEnemy.setTexture('enemy2');
-                                                                                        
+                                                                                        shockwave.destroy(); bossEnemy.setTexture('enemy2');
                                                                                         const baseW = 500, baseH = 500, baseY = 480;
-
                                                                                         scene.tweens.add({
-                                                                                            targets: bossEnemy,
-                                                                                            displayHeight: baseH * 0.75,
-                                                                                            displayWidth: baseW * 1.15,
-                                                                                            y: baseY + 85, 
-                                                                                            duration: 700, 
-                                                                                            ease: 'Sine.easeInOut',
+                                                                                            targets: bossEnemy, displayHeight: baseH * 0.75, displayWidth: baseW * 1.15, y: baseY + 85, duration: 700, ease: 'Sine.easeInOut',
                                                                                             onComplete: () => {
-                                                                                                
                                                                                                 scene.tweens.add({
-                                                                                                    targets: bossEnemy,
-                                                                                                    displayHeight: baseH * 1.1,
-                                                                                                    displayWidth: baseW * 0.9,
-                                                                                                    y: -500, 
-                                                                                                    duration: 700,
-                                                                                                    delay: 300,
-                                                                                                    ease: 'Cubic.easeIn',
+                                                                                                    targets: bossEnemy, displayHeight: baseH * 1.1, displayWidth: baseW * 0.9, y: -500, duration: 700, delay: 300, ease: 'Cubic.easeIn',
                                                                                                     onComplete: () => {
-                                                                                                        
-                                                                                                        if (darkBgOverlay) {
-                                                                                                            darkBgOverlay.destroy();
-                                                                                                            darkBgOverlay = null;
-                                                                                                        }
-
+                                                                                                        if (darkBgOverlay) { darkBgOverlay.destroy(); darkBgOverlay = null; }
                                                                                                         bossEnemy.setDisplaySize(500, 500); 
-                                                                                                        
                                                                                                         scene.tweens.add({
-                                                                                                            targets: bossEnemy,
-                                                                                                            y: 480, 
-                                                                                                            duration: 2500, 
-                                                                                                            delay: 500, 
-                                                                                                            ease: 'Sine.easeInOut',
+                                                                                                            targets: bossEnemy, y: 480, duration: 2500, delay: 500, ease: 'Sine.easeInOut',
                                                                                                             onComplete: () => {
                                                                                                                 const hpBarWidth = 680;
                                                                                                                 const bossHpBg = scene.add.rectangle(20, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(100);
                                                                                                                 const bossHpFill = scene.add.rectangle(20, 60, 0, 24, 0xff0000).setOrigin(0, 0.5).setDepth(101);
-                                                                                                                const bossNameText = scene.add.text(20, 25, "AWAKENED BOSS", { 
-                                                                                                                    fontSize: '22px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 3 
-                                                                                                                }).setDepth(100);
-                                                                                                                
+                                                                                                                const bossNameText = scene.add.text(20, 25, "AWAKENED BOSS", { fontSize: '22px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 3 }).setDepth(100);
                                                                                                                 bossUI = [bossHpBg, bossHpFill, bossNameText];
-
-                                                                                                                scene.tweens.add({
-                                                                                                                    targets: bossHpFill,
-                                                                                                                    width: hpBarWidth,
-                                                                                                                    duration: 1500,
-                                                                                                                    ease: 'Power3.easeOut',
-                                                                                                                    onComplete: () => {
-                                                                                                                        startFusionEvent(scene);
-                                                                                                                    }
-                                                                                                                });
+                                                                                                                scene.tweens.add({ targets: bossHpFill, width: hpBarWidth, duration: 1500, ease: 'Power3.easeOut', onComplete: () => { startFusionEvent(scene); } });
                                                                                                             }
                                                                                                         });
                                                                                                     }
@@ -414,12 +399,8 @@
                                 targetEnemy.setData('hp', newHP);
                                 const ui = targetEnemy.getData('ui');
                                 const maxHp = targetEnemy.getData('maxHp');
-                                ui[0].setText(`${newHP}`);
-                                ui[2].width = 36 * (newHP / maxHp);
-                                
-                                scene.time.delayedCall(500, () => {
-                                    if (onComplete) onComplete();
-                                });
+                                ui[0].setText(`${newHP}`); ui[2].width = 36 * (newHP / maxHp);
+                                scene.time.delayedCall(500, () => { if (onComplete) onComplete(); });
                             }
                         }
                     }
@@ -430,72 +411,47 @@
         function startFusionEvent(scene) {
             const hero = alliedUnits.getChildren()[0];
             if (!hero) return;
+            activeHero = hero; // ★ここでグローバルにセット
 
             scene.cameras.main.pan(hero.x, hero.y, 1000, 'Power2');
             scene.cameras.main.zoomTo(2, 1000, 'Power2');
 
             scene.time.delayedCall(1700, () => {
                 const heroText1 = createDialog(scene, hero.x, hero.y - 70, "やばくね？");
-
                 scene.time.delayedCall(2000, () => {
                     heroText1.destroy();
-
                     const partner = scene.add.sprite(hero.x + 200, hero.y, 'partner').setOrigin(0.5);
-                    partner.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
-                    partner.setDepth(hero.depth + 1);
+                    partner.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10); partner.setDepth(hero.depth + 1);
 
                     scene.tweens.add({
-                        targets: partner,
-                        x: hero.x + 70,
-                        duration: 800,
-                        ease: 'Power2.easeOut',
+                        targets: partner, x: hero.x + 70, duration: 800, ease: 'Power2.easeOut',
                         onComplete: () => {
                             const partnerText = createDialog(scene, partner.x, partner.y - 70, "合体しよ！");
-
                             scene.time.delayedCall(2000, () => {
                                 partnerText.destroy();
-
                                 const heroText2 = createDialog(scene, hero.x, hero.y - 70, "いいよ！");
-
                                 scene.time.delayedCall(2000, () => {
                                     heroText2.destroy();
-
-                                    scene.tweens.add({
-                                        targets: partner,
-                                        x: hero.x,
-                                        duration: 800,
-                                        ease: 'Power2.easeIn'
-                                    });
+                                    scene.tweens.add({ targets: partner, x: hero.x, duration: 800, ease: 'Power2.easeIn' });
 
                                     const flash = scene.add.rectangle(hero.x, hero.y, 3000, 3000, 0xffffff).setOrigin(0.5).setDepth(200);
                                     flash.setAlpha(0);
 
                                     scene.tweens.add({
-                                        targets: flash,
-                                        alpha: 1,
-                                        duration: 800,
-                                        yoyo: true,
-                                        hold: 500,
+                                        targets: flash, alpha: 1, duration: 800, yoyo: true, hold: 500,
                                         onYoyo: () => {
-                                            hero.setTexture('superhero');
-                                            hero.setDisplaySize(TILE_SIZE * 1.5, TILE_SIZE * 1.5);
+                                            hero.setTexture('superhero'); hero.setDisplaySize(TILE_SIZE * 1.5, TILE_SIZE * 1.5);
                                             partner.destroy();
                                             if (hero.getData('text')) hero.getData('text').setVisible(false);
                                         },
                                         onComplete: () => {
                                             flash.destroy();
-                                            
                                             const heroText3 = createDialog(scene, hero.x, hero.y - 70, "・・・殺す！");
-                                            
                                             scene.time.delayedCall(2500, () => {
                                                 heroText3.destroy();
-                                                
                                                 scene.cameras.main.pan(360, 640, 1000, 'Power2');
                                                 scene.cameras.main.zoomTo(1, 1000, 'Power2');
-
-                                                scene.time.delayedCall(1700, () => {
-                                                    transitionToShooter(scene, hero);
-                                                });
+                                                scene.time.delayedCall(1700, () => { transitionToShooter(scene, hero); });
                                             });
                                         }
                                     });
@@ -509,72 +465,26 @@
 
         function transitionToShooter(scene, hero) {
             turnText.setVisible(false);
+            const heroBaseH = hero.displayHeight; const heroBaseW = hero.displayWidth;
+            const bossBaseH = bossEnemy.displayHeight; const bossBaseW = bossEnemy.displayWidth;
             
-            const heroBaseH = hero.displayHeight;
-            const heroBaseW = hero.displayWidth;
-            const bossBaseH = bossEnemy.displayHeight;
-            const bossBaseW = bossEnemy.displayWidth;
-            
+            scene.tweens.add({ targets: hero, displayHeight: heroBaseH * 0.6, displayWidth: heroBaseW * 1.3, y: hero.y + (heroBaseH * 0.2), duration: 1000, ease: 'Sine.easeOut' });
             scene.tweens.add({
-                targets: hero,
-                displayHeight: heroBaseH * 0.6,
-                displayWidth: heroBaseW * 1.3,
-                y: hero.y + (heroBaseH * 0.2), 
-                duration: 1000,
-                ease: 'Sine.easeOut'
-            });
-            
-            scene.tweens.add({
-                targets: bossEnemy,
-                displayHeight: bossBaseH * 0.7,
-                displayWidth: bossBaseW * 1.2,
-                y: bossEnemy.y + (bossBaseH * 0.15),
-                duration: 1000,
-                ease: 'Sine.easeOut',
+                targets: bossEnemy, displayHeight: bossBaseH * 0.7, displayWidth: bossBaseW * 1.2, y: bossEnemy.y + (bossBaseH * 0.15), duration: 1000, ease: 'Sine.easeOut',
                 onComplete: () => {
+                    scene.tweens.add({ targets: hero, displayHeight: heroBaseH * 1.2, displayWidth: heroBaseW * 0.8, y: -1500, duration: 400, ease: 'Cubic.easeIn' });
                     scene.tweens.add({
-                        targets: hero,
-                        displayHeight: heroBaseH * 1.2, 
-                        displayWidth: heroBaseW * 0.8,
-                        y: -1500, 
-                        duration: 400,
-                        ease: 'Cubic.easeIn'
-                    });
-                    
-                    scene.tweens.add({
-                        targets: bossEnemy,
-                        displayHeight: bossBaseH * 1.1,
-                        displayWidth: bossBaseW * 0.9,
-                        y: -1500,
-                        duration: 400,
-                        ease: 'Cubic.easeIn',
+                        targets: bossEnemy, displayHeight: bossBaseH * 1.1, displayWidth: bossBaseW * 0.9, y: -1500, duration: 400, ease: 'Cubic.easeIn',
                         onComplete: () => {
-                            hero.setDisplaySize(heroBaseW, heroBaseH);
-                            bossEnemy.setDisplaySize(bossBaseW, bossBaseH);
-                            
-                            bossUI.forEach(ui => ui.destroy());
-                            bossUI = [];
+                            hero.setDisplaySize(heroBaseW, heroBaseH); bossEnemy.setDisplaySize(bossBaseW, bossBaseH);
+                            bossUI.forEach(ui => ui.destroy()); bossUI = [];
 
                             scene.time.delayedCall(800, () => {
                                 spaceYOffset = -1280; 
                                 scene.add.rectangle(360, -640, 720, 1280, 0x000000).setDepth(250);
-                                
-                                scene.add.particles(0, -1400, 'star', {
-                                    x: { min: 0, max: 720 },
-                                    y: 0,
-                                    lifespan: 3000,
-                                    speedY: { min: 1000, max: 3000 },
-                                    scale: { min: 0.5, max: 1.0 }, 
-                                    alpha: { min: 0.3, max: 0.8 },
-                                    quantity: 15,
-                                    blendMode: 'ADD'
-                                }).setDepth(251);
-
+                                scene.add.particles(0, -1400, 'star', { x: { min: 0, max: 720 }, y: 0, lifespan: 3000, speedY: { min: 1000, max: 3000 }, scale: { min: 0.5, max: 1.0 }, alpha: { min: 0.3, max: 0.8 }, quantity: 15, blendMode: 'ADD' }).setDepth(251);
                                 scene.cameras.main.pan(360, -640, 2000, 'Sine.easeInOut');
-
-                                scene.time.delayedCall(2000, () => {
-                                    startShooterMode(scene, hero);
-                                });
+                                scene.time.delayedCall(2000, () => { startShooterMode(scene, hero); });
                             });
                         }
                     });
@@ -584,91 +494,48 @@
 
         function startShooterMode(scene, hero) {
             isShooterMode = true;
+            hero.setDepth(260); bossEnemy.setDepth(260);
             
-            hero.setDepth(260);
-            bossEnemy.setDepth(260);
+            hero.x = 360; hero.y = 200; 
+            scene.tweens.add({ targets: hero, y: -280, duration: 1000, ease: 'Power2' });
             
-            hero.x = 360;
-            hero.y = 200; 
+            bossEnemy.x = 360; bossEnemy.y = -1600; 
             scene.tweens.add({
-                targets: hero,
-                y: -280, 
-                duration: 1000,
-                ease: 'Power2'
-            });
-            
-            bossEnemy.x = 360;
-            bossEnemy.y = -1600; 
-            scene.tweens.add({
-                targets: bossEnemy,
-                y: -1030, 
-                duration: 1000,
-                ease: 'Power2',
+                targets: bossEnemy, y: -1030, duration: 1000, ease: 'Power2',
                 onComplete: () => {
-
-                    // ★ボスのHPバー (上部・左から右)
                     const hpBarWidth = 660;
                     const bossHpBg = scene.add.rectangle(30, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     const bossHpFill = scene.add.rectangle(30, 60, 0, 24, 0xff0000).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0).setVisible(false);
-                    const bossNameText = scene.add.text(30, 25, "AWAKENED SHUN", { 
-                        fontFamily: '"Impact", "Arial Black", sans-serif',
-                        fontSize: '28px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
-                    }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
-                    
+                    const bossNameText = scene.add.text(30, 25, "AWAKENED SHUN", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     bossUI = [bossHpBg, bossHpFill, bossNameText];
 
-                    // ★ヒーローのHPバー (下部・左から右・HP表記追加)
+                    bossHP = bossMaxHP;
                     globalHP = 1000;
+                    
                     const heroHpBg = scene.add.rectangle(30, 1220, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     const heroHpFill = scene.add.rectangle(30, 1220, 0, 24, 0x00e676).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0).setVisible(false);
-                    const heroNameText = scene.add.text(30, 1185, "SUPER SOGO   HP: 1000 / 1000", { 
-                        fontFamily: '"Impact", "Arial Black", sans-serif',
-                        fontSize: '28px', fill: '#00e676', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
-                    }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
-                    
+                    const heroNameText = scene.add.text(30, 1185, "SUPER SOGO   HP: 1000 / 1000", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#00e676', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
                     heroShooterUI = [heroHpBg, heroHpFill, heroNameText];
 
-                    const instructionText = scene.add.text(360, -640, "そーごを操作して、\nしゅんを倒せ！！", { 
-                        fontFamily: '"Impact", "Arial Black", sans-serif',
-                        fontSize: '60px', fill: '#ffeb3b', fontStyle: 'bold', align: 'center', 
-                        stroke: '#ff0000', strokeThickness: 10,
-                        shadow: { offsetX: 4, offsetY: 4, color: '#000', blur: 8, fill: true }
-                    }).setOrigin(0.5).setDepth(400);
+                    const instructionText = scene.add.text(360, -640, "そーごを操作して、\nしゅんを倒せ！！", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '60px', fill: '#ffeb3b', fontStyle: 'bold', align: 'center', stroke: '#ff0000', strokeThickness: 10, shadow: { offsetX: 4, offsetY: 4, color: '#000', blur: 8, fill: true } }).setOrigin(0.5).setDepth(400);
 
-                    // ★アラーム音と文字の動き（0.4秒×6回 = 計2.4秒）
                     scene.tweens.add({
-                        targets: instructionText,
-                        scaleX: 1.15,
-                        scaleY: 1.15,
-                        duration: 200, // 0.2秒拡大、0.2秒縮小で1往復0.4秒
-                        yoyo: true,
-                        repeat: 5,     // 最初と合わせて計6往復
-                        onStart: () => {
-                            try { scene.sound.play('alarm'); } catch(e) {}
-                        },
-                        onRepeat: () => {
-                            try { scene.sound.play('alarm'); } catch(e) {}
-                        },
+                        targets: instructionText, scaleX: 1.15, scaleY: 1.15, duration: 200, yoyo: true, repeat: 5,
+                        onStart: () => { try { scene.sound.play('alarm'); } catch(e) {} },
+                        onRepeat: () => { try { scene.sound.play('alarm'); } catch(e) {} },
                         onComplete: () => {
                             scene.time.delayedCall(300, () => {
                                 instructionText.destroy();
                                 
-                                bossHpBg.setVisible(true);
-                                bossHpFill.setVisible(true);
-                                bossNameText.setVisible(true);
+                                bossHpBg.setVisible(true); bossHpFill.setVisible(true); bossNameText.setVisible(true);
+                                heroHpBg.setVisible(true); heroHpFill.setVisible(true); heroNameText.setVisible(true);
                                 
-                                heroHpBg.setVisible(true);
-                                heroHpFill.setVisible(true);
-                                heroNameText.setVisible(true);
-                                
-                                // ★HPバーを左から右へ伸ばす
                                 scene.tweens.add({
-                                    targets: [bossHpFill, heroHpFill],
-                                    width: hpBarWidth,
-                                    duration: 1200,
-                                    ease: 'Power3.easeOut',
+                                    targets: [bossHpFill, heroHpFill], width: hpBarWidth, duration: 1200, ease: 'Power3.easeOut',
                                     onComplete: () => {
                                         startAutoShooting(scene, hero);
+                                        // ★HPバーが伸びた直後にボスの攻撃ルーチン開始
+                                        scene.time.delayedCall(1000, () => startBossAttack(scene));
                                     }
                                 });
                             });
@@ -676,6 +543,124 @@
                     });
                 }
             });
+        }
+
+        // ==========================================
+        // ★ボスの瞬間移動＆攻撃ルーチン
+        // ==========================================
+        function startBossAttack(scene) {
+            executeTeleportAttack(scene, 0);
+        }
+
+        function executeTeleportAttack(scene, count) {
+            if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
+            
+            // 3回繰り返したら、少し休んでから再度ループ
+            if (count >= 3) {
+                scene.time.delayedCall(1500, () => executeTeleportAttack(scene, 0));
+                return;
+            }
+
+            // 1. 左右から潰れて消える（0.2秒）
+            scene.tweens.add({
+                targets: bossEnemy,
+                displayWidth: 0,
+                duration: 200,
+                ease: 'Linear',
+                onComplete: () => {
+                    // 2. 座標をランダムに変更
+                    // 移動範囲：X(150〜570) Y(画面上から3/5まで)
+                    // カメラの中心がY:-640なので、上端は-1280、3/5の位置は -1280 + (1280*0.6) = -512
+                    // ボスの大きさ(500)を考慮して安全な範囲 (-1150 〜 -770) に設定
+                    const randomX = Phaser.Math.Between(150, 570);
+                    const randomY = Phaser.Math.Between(-1150, -770); 
+                    bossEnemy.x = randomX;
+                    bossEnemy.y = randomY;
+
+                    // 3. 中央から開いて現れる（0.2秒） 計0.4秒間隔
+                    scene.tweens.add({
+                        targets: bossEnemy,
+                        displayWidth: 500,
+                        duration: 200,
+                        ease: 'Linear',
+                        onComplete: () => {
+                            // 現れた瞬間に円状の弾を発射
+                            fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
+                            
+                            // 連続して次の移動へ
+                            executeTeleportAttack(scene, count + 1);
+                        }
+                    });
+                }
+            });
+        }
+
+        // ★ボスの全方位攻撃（円状弾）
+        function fireCircleBullets(scene, x, y) {
+            try { scene.sound.play('shoot'); } catch(e) {}
+            
+            const numBullets = 12; // 12方向に発射
+            const speed = 400; // 弾速
+
+            for (let i = 0; i < numBullets; i++) {
+                const angle = (i * (360 / numBullets)) * (Math.PI / 180);
+                
+                // エネミーの縮小版を弾として使う
+                const bullet = scene.add.sprite(x, y, 'enemy2').setOrigin(0.5).setDepth(255);
+                bullet.setDisplaySize(40, 40); 
+                scene.physics.add.existing(bullet);
+                
+                // 角度に合わせて飛ばす
+                bullet.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                
+                const checkEvent = scene.time.addEvent({
+                    delay: 20, loop: true,
+                    callback: () => {
+                        if (!bullet.active) { checkEvent.remove(); return; }
+                        
+                        // 画面外で消去
+                        if (bullet.y < -1380 || bullet.y > 100 || bullet.x < -100 || bullet.x > 820) {
+                            bullet.destroy();
+                            checkEvent.remove();
+                        } else if (activeHero && activeHero.active) {
+                            // ★ヒーローへの当たり判定
+                            const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, activeHero.x, activeHero.y);
+                            if (dist < 35) { // 当たり判定の距離
+                                bullet.destroy();
+                                checkEvent.remove();
+                                try { scene.sound.play('hit'); } catch(e) {}
+                                takeHeroShooterDamage(scene, 100); // 1発100ダメージ
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ★シューティング専用：ヒーローがダメージを受けた時の処理
+        function takeHeroShooterDamage(scene, amount) {
+            globalHP -= amount;
+            if (globalHP < 0) globalHP = 0;
+            
+            if (heroShooterUI.length > 0) {
+                heroShooterUI[1].width = 660 * (globalHP / 1000);
+                heroShooterUI[2].setText(`SUPER SOGO   HP: ${globalHP} / 1000`);
+            }
+
+            if (activeHero) {
+                activeHero.setTint(0xff0000);
+                scene.time.delayedCall(100, () => {
+                    if (activeHero && activeHero.active) activeHero.clearTint();
+                });
+            }
+
+            if (globalHP <= 0 && isShooterMode) {
+                isShooterMode = false;
+                scene.add.text(360, -640, 'GAME OVER', { 
+                    fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
+                }).setOrigin(0.5).setDepth(1000);
+                if (activeHero) activeHero.destroy();
+            }
         }
 
         function startAutoShooting(scene, hero) {
@@ -693,8 +678,7 @@
                     try { scene.sound.play('shoot'); } catch(e) {}
                     
                     const checkHitEvent = scene.time.addEvent({
-                        delay: 20,
-                        loop: true,
+                        delay: 20, loop: true,
                         callback: () => {
                             if (!bullet.active) { checkHitEvent.remove(); return; }
                             
@@ -709,6 +693,19 @@
                                     
                                     bossEnemy.setTint(0xff8888);
                                     scene.time.delayedCall(50, () => bossEnemy.clearTint());
+
+                                    // ★ボスへのダメージ処理
+                                    bossHP -= 150; // 1発150ダメージ
+                                    if (bossHP < 0) bossHP = 0;
+                                    bossUI[1].width = 660 * (bossHP / bossMaxHP);
+                                    
+                                    if (bossHP <= 0 && isShooterMode) {
+                                        isShooterMode = false;
+                                        scene.add.text(360, -640, 'YOU WIN!', { 
+                                            fontSize: '80px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
+                                        }).setOrigin(0.5).setDepth(1000);
+                                        bossEnemy.destroy();
+                                    }
                                 }
                             }
                         }
@@ -748,12 +745,7 @@
                     if (e.getData('ui')) e.getData('ui').forEach(ui => ui.destroy());
                     e.destroy();
                 });
-                
-                if (isGameOverThisTurn) {
-                    try { scene.sound.play('hit'); } catch(e) {}
-                    takeDamage(1000, scene);
-                }
-                
+                if (isGameOverThisTurn) { try { scene.sound.play('hit'); } catch(e) {} takeDamage(1000, scene); }
                 if(onComplete) onComplete(); 
             });
         }
@@ -766,70 +758,48 @@
                 }
                 return;
             }
-
             if (isTurnExecuting) return;
-            gameObject.x = dragX;
-            gameObject.y = dragY;
-            gameObject.getData('text').x = dragX;
-            gameObject.getData('text').y = dragY + 30; 
-            gameObject.setDepth(10);
-            gameObject.getData('text').setDepth(11);
+            gameObject.x = dragX; gameObject.y = dragY;
+            gameObject.getData('text').x = dragX; gameObject.getData('text').y = dragY + 30; 
+            gameObject.setDepth(10); gameObject.getData('text').setDepth(11);
         }
 
         function handleDragEnd(pointer, gameObject) {
             if (isShooterMode) return;
-
-            gameObject.setDepth(0);
-            gameObject.getData('text').setDepth(0);
-            
+            gameObject.setDepth(0); gameObject.getData('text').setDepth(0);
             const scene = gameObject.scene;
-
             if (isTurnExecuting) { returnAllUnitToPosition(gameObject); return; }
 
             const dropGridX = Math.floor((gameObject.x - START_X) / TILE_SIZE);
             const dropGridY = Math.floor((gameObject.y - ALLIED_START_Y) / TILE_SIZE);
-            const oldX = gameObject.getData('gridX');
-            const oldY = gameObject.getData('gridY');
+            const oldX = gameObject.getData('gridX'); const oldY = gameObject.getData('gridY');
 
             if (dropGridX < 0 || dropGridX >= COLS || dropGridY < 0 || dropGridY >= ALLIED_ROWS || (dropGridX === oldX && dropGridY === oldY)) {
                 returnAllUnitToPosition(gameObject); return;
             }
 
             let targetUnit = null;
-            alliedUnits.getChildren().forEach(unit => {
-                if (unit !== gameObject && unit.getData('gridX') === dropGridX && unit.getData('gridY') === dropGridY) {
-                    targetUnit = unit;
-                }
-            });
+            alliedUnits.getChildren().forEach(unit => { if (unit !== gameObject && unit.getData('gridX') === dropGridX && unit.getData('gridY') === dropGridY) targetUnit = unit; });
 
             if (targetUnit && targetUnit.getData('type') === gameObject.getData('type') && targetUnit.getData('level') === gameObject.getData('level')) {
                 const newLevel = gameObject.getData('level') + 1;
                 const type = gameObject.getData('type');
-
                 if (gameObject.getData('text')) gameObject.getData('text').destroy();
                 if (targetUnit.getData('text')) targetUnit.getData('text').destroy();
-                alliedUnits.remove(gameObject, true, true);
-                alliedUnits.remove(targetUnit, true, true);
-
+                alliedUnits.remove(gameObject, true, true); alliedUnits.remove(targetUnit, true, true);
                 spawnAlliedUnit(scene, newLevel, type, dropGridX, dropGridY, 10);
                 executeTurn(scene);
             } else if (!targetUnit) {
-                gameObject.setData('gridX', dropGridX);
-                gameObject.setData('gridY', dropGridY);
-                returnAllUnitToPosition(gameObject);
-                executeTurn(scene);
-            } else {
-                returnAllUnitToPosition(gameObject);
-            }
+                gameObject.setData('gridX', dropGridX); gameObject.setData('gridY', dropGridY);
+                returnAllUnitToPosition(gameObject); executeTurn(scene);
+            } else { returnAllUnitToPosition(gameObject); }
         }
 
         function returnAllUnitToPosition(unit) {
             const worldX = START_X + unit.getData('gridX') * TILE_SIZE + TILE_SIZE / 2;
             const worldY = ALLIED_START_Y + unit.getData('gridY') * TILE_SIZE + TILE_SIZE / 2;
-            unit.x = worldX;
-            unit.y = worldY;
-            unit.getData('text').x = worldX;
-            unit.getData('text').y = worldY + 30; 
+            unit.x = worldX; unit.y = worldY;
+            unit.getData('text').x = worldX; unit.getData('text').y = worldY + 30; 
         }
     </script>
 </body>
