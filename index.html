@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Merge Shoot RPG - Shooter Boss Attack</title>
+    <title>Merge Shoot RPG - Epic Boss Teleport</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         body { margin: 0; padding: 0; background-color: #1a1a1a; overflow: hidden; touch-action: none; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; }
@@ -32,9 +32,8 @@
 
         let darkBgOverlay = null;
         
-        // ★シューティング用グローバル変数
         let bossEnemy = null; 
-        let activeHero = null; // 操作中のヒーロー
+        let activeHero = null; 
         let bossUI = [];
         let heroShooterUI = []; 
         let isShooterMode = false;
@@ -63,6 +62,9 @@
             this.load.audio('crowned', 'crowned.mp3');
             this.load.audio('roar', 'roar.mp3'); 
             this.load.audio('alarm', 'alarm.mp3'); 
+            // ★瞬間移動用の音を「消える時」と「現れる時」の2つに分割
+            this.load.audio('warp_out', 'warp_out.mp3'); 
+            this.load.audio('warp_in', 'warp_in.mp3'); 
         }
 
         function create() {
@@ -102,7 +104,7 @@
             this.input.on('dragend', handleDragEnd, this);
 
             // ==========================================
-            // ★開発用スキップボタン（クリックで即シューティング）
+            // ★超快適スキップボタン（時間を20倍速に進める）
             // ==========================================
             const skipBtn = this.add.text(10, 10, '⏩ SKIP TO BOSS', { 
                 fontSize: '20px', fill: '#fff', backgroundColor: '#d32f2f', padding: { x: 10, y: 10 } 
@@ -110,64 +112,8 @@
 
             skipBtn.on('pointerdown', () => {
                 skipBtn.destroy();
-                
-                // 全てのアニメーションとイベントを強制停止
-                this.tweens.killAll(); 
-                this.time.removeAllEvents();
-
-                // UIと盤面を覆い隠す
-                this.add.rectangle(360, 640, 720, 2560, 0x000000).setOrigin(0.5).setDepth(240);
-
-                // カメラ位置を宇宙へ移動
-                this.cameras.main.scrollY = -1280;
-                spaceYOffset = -1280; 
-
-                // 星空を生成
-                this.add.particles(0, -1400, 'star', {
-                    x: { min: 0, max: 720 },
-                    y: 0,
-                    lifespan: 3000,
-                    speedY: { min: 1000, max: 3000 },
-                    scale: { min: 0.5, max: 1.0 }, 
-                    alpha: { min: 0.3, max: 0.8 },
-                    quantity: 15,
-                    blendMode: 'ADD'
-                }).setDepth(251);
-
-                // ヒーローを配置
-                const hero = this.add.sprite(360, -280, 'superhero').setOrigin(0.5).setDisplaySize(TILE_SIZE * 1.5, TILE_SIZE * 1.5).setDepth(260);
-                hero.setData({ isAllied: true, active: true });
-                this.input.setDraggable(hero);
-                activeHero = hero;
-
-                // ボスを配置
-                bossEnemy = this.add.sprite(360, -1030, 'enemy2').setOrigin(0.5).setDisplaySize(500, 500).setDepth(260);
-                bossEnemy.setData({ active: true });
-
-                // UIを直接描画
-                const hpBarWidth = 660;
-                const bossHpBg = this.add.rectangle(30, 60, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
-                const bossHpFill = this.add.rectangle(30, 60, hpBarWidth, 24, 0xff0000).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0);
-                const bossNameText = this.add.text(30, 25, "AWAKENED SHUN", { 
-                    fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
-                }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
-                bossUI = [bossHpBg, bossHpFill, bossNameText];
-
-                globalHP = 1000;
-                bossHP = bossMaxHP;
-
-                const heroHpBg = this.add.rectangle(30, 1220, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
-                const heroHpFill = this.add.rectangle(30, 1220, hpBarWidth, 24, 0x00e676).setOrigin(0, 0.5).setDepth(301).setScrollFactor(0);
-                const heroNameText = this.add.text(30, 1185, "SUPER SOGO   HP: 1000 / 1000", { 
-                    fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#00e676', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
-                }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0);
-                heroShooterUI = [heroHpBg, heroHpFill, heroNameText];
-
-                isShooterMode = true;
-                startAutoShooting(this, activeHero);
-                
-                // ★直接ボスの攻撃ルーチンをスタート
-                this.time.delayedCall(1000, () => startBossAttack(this));
+                this.time.timeScale = 20; 
+                if (!isTurnExecuting) executeTurn(this);
             });
         }
 
@@ -411,7 +357,7 @@
         function startFusionEvent(scene) {
             const hero = alliedUnits.getChildren()[0];
             if (!hero) return;
-            activeHero = hero; // ★ここでグローバルにセット
+            activeHero = hero; 
 
             scene.cameras.main.pan(hero.x, hero.y, 1000, 'Power2');
             scene.cameras.main.zoomTo(2, 1000, 'Power2');
@@ -493,7 +439,9 @@
         }
 
         function startShooterMode(scene, hero) {
+            scene.time.timeScale = 1; 
             isShooterMode = true;
+            
             hero.setDepth(260); bossEnemy.setDepth(260);
             
             hero.x = 360; hero.y = 200; 
@@ -534,7 +482,6 @@
                                     targets: [bossHpFill, heroHpFill], width: hpBarWidth, duration: 1200, ease: 'Power3.easeOut',
                                     onComplete: () => {
                                         startAutoShooting(scene, hero);
-                                        // ★HPバーが伸びた直後にボスの攻撃ルーチン開始
                                         scene.time.delayedCall(1000, () => startBossAttack(scene));
                                     }
                                 });
@@ -546,7 +493,7 @@
         }
 
         // ==========================================
-        // ★ボスの瞬間移動＆攻撃ルーチン
+        // ★ボスの瞬間移動＆攻撃ルーチン（更新版）
         // ==========================================
         function startBossAttack(scene) {
             executeTeleportAttack(scene, 0);
@@ -555,39 +502,42 @@
         function executeTeleportAttack(scene, count) {
             if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
             
-            // 3回繰り返したら、少し休んでから再度ループ
             if (count >= 3) {
                 scene.time.delayedCall(1500, () => executeTeleportAttack(scene, 0));
                 return;
             }
 
-            // 1. 左右から潰れて消える（0.2秒）
+            const baseW = 500;
+            const baseH = 500;
+
+            // ★消える音
+            try { scene.sound.play('warp_out'); } catch(e) {}
+
             scene.tweens.add({
                 targets: bossEnemy,
                 displayWidth: 0,
-                duration: 200,
-                ease: 'Linear',
+                displayHeight: baseH * 1.5, 
+                alpha: 0, 
+                duration: 400,
+                ease: 'Expo.easeIn', 
                 onComplete: () => {
-                    // 2. 座標をランダムに変更
-                    // 移動範囲：X(150〜570) Y(画面上から3/5まで)
-                    // カメラの中心がY:-640なので、上端は-1280、3/5の位置は -1280 + (1280*0.6) = -512
-                    // ボスの大きさ(500)を考慮して安全な範囲 (-1150 〜 -770) に設定
                     const randomX = Phaser.Math.Between(150, 570);
                     const randomY = Phaser.Math.Between(-1150, -770); 
                     bossEnemy.x = randomX;
                     bossEnemy.y = randomY;
 
-                    // 3. 中央から開いて現れる（0.2秒） 計0.4秒間隔
+                    // ★現れる音
+                    try { scene.sound.play('warp_in'); } catch(e) {}
+
                     scene.tweens.add({
                         targets: bossEnemy,
-                        displayWidth: 500,
-                        duration: 200,
-                        ease: 'Linear',
+                        displayWidth: baseW,
+                        displayHeight: baseH,
+                        alpha: 1,
+                        duration: 400,
+                        ease: 'Expo.easeOut', 
                         onComplete: () => {
-                            // 現れた瞬間に円状の弾を発射
                             fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
-                            
-                            // 連続して次の移動へ
                             executeTeleportAttack(scene, count + 1);
                         }
                     });
@@ -595,22 +545,19 @@
             });
         }
 
-        // ★ボスの全方位攻撃（円状弾）
         function fireCircleBullets(scene, x, y) {
             try { scene.sound.play('shoot'); } catch(e) {}
             
-            const numBullets = 12; // 12方向に発射
-            const speed = 400; // 弾速
+            const numBullets = 20; 
+            const speed = 400; 
 
             for (let i = 0; i < numBullets; i++) {
                 const angle = (i * (360 / numBullets)) * (Math.PI / 180);
                 
-                // エネミーの縮小版を弾として使う
                 const bullet = scene.add.sprite(x, y, 'enemy2').setOrigin(0.5).setDepth(255);
                 bullet.setDisplaySize(40, 40); 
                 scene.physics.add.existing(bullet);
                 
-                // 角度に合わせて飛ばす
                 bullet.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
                 
                 const checkEvent = scene.time.addEvent({
@@ -618,18 +565,16 @@
                     callback: () => {
                         if (!bullet.active) { checkEvent.remove(); return; }
                         
-                        // 画面外で消去
                         if (bullet.y < -1380 || bullet.y > 100 || bullet.x < -100 || bullet.x > 820) {
                             bullet.destroy();
                             checkEvent.remove();
                         } else if (activeHero && activeHero.active) {
-                            // ★ヒーローへの当たり判定
                             const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, activeHero.x, activeHero.y);
-                            if (dist < 35) { // 当たり判定の距離
+                            if (dist < 35) { 
                                 bullet.destroy();
                                 checkEvent.remove();
                                 try { scene.sound.play('hit'); } catch(e) {}
-                                takeHeroShooterDamage(scene, 100); // 1発100ダメージ
+                                takeHeroShooterDamage(scene, 100); 
                             }
                         }
                     }
@@ -637,7 +582,6 @@
             }
         }
 
-        // ★シューティング専用：ヒーローがダメージを受けた時の処理
         function takeHeroShooterDamage(scene, amount) {
             globalHP -= amount;
             if (globalHP < 0) globalHP = 0;
@@ -694,8 +638,7 @@
                                     bossEnemy.setTint(0xff8888);
                                     scene.time.delayedCall(50, () => bossEnemy.clearTint());
 
-                                    // ★ボスへのダメージ処理
-                                    bossHP -= 150; // 1発150ダメージ
+                                    bossHP -= 150; 
                                     if (bossHP < 0) bossHP = 0;
                                     bossUI[1].width = 660 * (bossHP / bossMaxHP);
                                     
