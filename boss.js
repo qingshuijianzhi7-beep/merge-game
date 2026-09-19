@@ -1,4 +1,4 @@
-/// ==========================================
+// ==========================================
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
 
@@ -328,6 +328,7 @@ function startAutoShooting(scene, hero) {
                         bullet.destroy();
                         checkHitEvent.remove();
                     } else if (bossEnemy && bossEnemy.active) {
+                        // 右側の当たり判定を絞った調整
                         if (bullet.x > bossEnemy.x - 120 && bullet.x < bossEnemy.x + 90 && bullet.y < bossEnemy.y + 100 && bullet.y > bossEnemy.y - 120) {
                             bullet.destroy();
                             checkHitEvent.remove();
@@ -354,5 +355,4 @@ function startAutoShooting(scene, hero) {
             });
         }
     });
-}
 }
