@@ -440,3 +440,4 @@ function returnAllUnitToPosition(unit) {
     unit.x = worldX; unit.y = worldY;
     unit.getData('text').x = worldX; unit.getData('text').y = worldY + 30; 
 }
+function update() {}
