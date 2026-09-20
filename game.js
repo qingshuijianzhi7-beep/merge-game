@@ -46,7 +46,7 @@ function preload() {
     this.load.audio('crowned', 'crowned.mp3');
     this.load.audio('roar', 'roar.mp3'); 
     this.load.audio('alarm', 'alarm.mp3'); 
-    this.load.audio('explosion', 'explosion.mp3');
+    this.load.audio('explode', 'explode.mp3');
     this.load.audio('launch', 'launch.mp3');
     this.load.audio('warp_out', 'warp_out.mp3'); 
     this.load.audio('warp_in', 'warp_in.mp3'); 
