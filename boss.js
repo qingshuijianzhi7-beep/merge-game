@@ -1,8 +1,6 @@
 // ==========================================
 // ★ GIFと音のタイミング設定
 // ==========================================
-
-// ↓ 今度こそ絶対に「var」になっています！！！
 var TIMEOVER_GIF_FILES = [
     'destroy1.gif', // 1枚目
     'destroy2.gif', // 2枚目
@@ -19,6 +17,9 @@ var bossAttackCycle = 0;
 var isShooterTimeOver = false; // タイムオーバー時の絶対的な攻撃ストッパー
 
 function startFusionEvent(scene) {
+    // ★ ブラウザのキャッシュが消えて最新版が読み込まれたかどうかの確認用
+    console.log("★ startFusionEvent が正常に呼ばれました！(最新のboss.jsが動いています)");
+
     const hero = alliedUnits.getChildren()[0];
     if (!hero) return;
     activeHero = hero; 
@@ -821,4 +822,3 @@ function startAutoShooting(scene, hero) {
         }
     });
 }
-
