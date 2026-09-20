@@ -171,7 +171,7 @@ function executeTeleportAttack(scene, count) {
     const baseW = 500;
     const baseH = 500;
 
-    // ★5回目(count === 4)は中央上に現れてミサイル発射！
+    // ★5回目(count === 4)は中央上に現れてミサイル準備！
     if (count === 4) {
         try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
         scene.tweens.add({
@@ -179,8 +179,9 @@ function executeTeleportAttack(scene, count) {
             displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, 
             duration: 300, ease: 'Expo.easeIn', 
             onComplete: () => {
+                // 中央のちょっと上に配置
                 bossEnemy.x = 360;
-                bossEnemy.y = -1000; // 少し高めに配置
+                bossEnemy.y = -900; 
                 
                 scene.time.delayedCall(200, () => {
                     try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
@@ -210,8 +211,10 @@ function executeTeleportAttack(scene, count) {
     scene.tweens.add({
         targets: bossEnemy,
         displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, 
-        duration: 300, ease: 'Expo.easeIn', 
+        duration: 300, // ★タメ時間短縮
+        ease: 'Expo.easeIn', 
         onComplete: () => {
+            // ★瞬間移動の範囲を画面上から4/5（かなり下）までに拡大
             const randomX = Phaser.Math.Between(150, 570);
             const randomY = Phaser.Math.Between(-1200, -450); 
             bossEnemy.x = randomX;
@@ -219,12 +222,15 @@ function executeTeleportAttack(scene, count) {
 
             scene.time.delayedCall(200, () => { 
                 try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
+
                 scene.tweens.add({
                     targets: bossEnemy,
                     displayWidth: baseW, displayHeight: baseH, alpha: 1,
-                    duration: 300, ease: 'Expo.easeOut', 
+                    duration: 300,
+                    ease: 'Expo.easeOut', 
                     onComplete: () => {
                         fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
+                        // 次の回へ
                         executeTeleportAttack(scene, count + 1);
                     }
                 });
@@ -234,31 +240,35 @@ function executeTeleportAttack(scene, count) {
 }
 
 // ==========================================
-// ★新規追加：追尾ミサイル発射＆着弾爆発処理
+// ★新規追加：追尾ミサイル発射＆着弾爆発処理（1秒で追尾終了）
 // ==========================================
 function fireMissile(scene, x, y, onComplete) {
-    try { scene.sound.play('shoot', { volume: 2.0 }); } catch(e) {} 
+    // ★ご自身の用意した発射音を鳴らす
+    try { scene.sound.play('launch', { volume: 2.0 }); } catch(e) {} 
     
-    // とりあえずボス画像を細長くしてミサイルっぽくする（あとで画像変更可能）
-    const missile = scene.add.sprite(x, y, 'enemy2').setOrigin(0.5).setDepth(255);
-    missile.setDisplaySize(40, 150); 
+    // ★新しいミサイル画像をセット
+    const missile = scene.add.sprite(x, y, 'missile').setOrigin(0.5).setDepth(255);
+    missile.setDisplaySize(90, 150); // ミサイルのサイズ
     scene.physics.add.existing(missile);
     
     let speed = 550; // ミサイルの飛ぶ速度
     let currentAngle = Math.PI / 2; // 最初は真下(90度)を向いて発射
+    let trackingTimer = 0; // ★追尾した時間を測るタイマー
 
     const trackEvent = scene.time.addEvent({
         delay: 20, loop: true,
         callback: () => {
             if (!missile.active || !isShooterMode) { trackEvent.remove(); return; }
 
-            // 1. ほんの少しだけヒーローを追尾する処理
-            if (activeHero && activeHero.active) {
+            trackingTimer += 20; // ★20ミリ秒ずつカウントアップ
+
+            // 1. ほんの少しだけヒーローを追尾する処理（★1秒＝1000ミリ秒以内限定！）
+            if (trackingTimer <= 1000 && activeHero && activeHero.active) {
                 // ヒーローがいる方向の角度を計算
                 const targetAngle = Phaser.Math.Angle.Between(missile.x, missile.y, activeHero.x, activeHero.y);
                 // 現在の角度と目標の角度の差分を計算
                 let diff = Phaser.Math.Angle.Wrap(targetAngle - currentAngle);
-                // 0.04ずつゆっくりと角度を変える（この数字を大きくするとホーミングがキツくなる）
+                // 0.04ずつゆっくりと角度を変える
                 currentAngle += diff * 0.04; 
             }
 
@@ -286,13 +296,13 @@ function fireMissile(scene, x, y, onComplete) {
 
 // ミサイルの爆発処理（音、光、弾のばらまき）
 function explodeMissile(scene, missile, trackEvent, onComplete) {
-    trackEvent.remove(); // 追尾を止める
+    trackEvent.remove(); // 追尾＆移動を止める
     const exX = missile.x;
     const exY = missile.y;
     missile.destroy(); // ミサイル本体を消す
 
-    // 爆発音を鳴らす（game.jsで読み込んだもの）
-    try { scene.sound.play('explosion', { volume: 2.0 }); } catch(e) {}
+    // ★ご自身の用意した爆発音を鳴らす
+    try { scene.sound.play('explode', { volume: 2.0 }); } catch(e) {}
     
     // 爆発のフラッシュ演出（オレンジ色の円がパッと広がる）
     const flash = scene.add.circle(exX, exY, 120, 0xff8800).setDepth(260);
@@ -348,7 +358,6 @@ function fireCircleBullets(scene, x, y) {
     }
 }
 
-// ダメージ処理
 function takeHeroShooterDamage(scene, amount) {
     globalHP -= amount;
     if (globalHP < 0) globalHP = 0;
@@ -375,7 +384,6 @@ function takeHeroShooterDamage(scene, amount) {
     }
 }
 
-// ヒーローの自動攻撃
 function startAutoShooting(scene, hero) {
     scene.time.addEvent({
         delay: 150, 
