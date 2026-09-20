@@ -21,6 +21,7 @@ const EXPLOSION_SOUND_DELAY = 1000;
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
 var bossAttackCycle = 0; 
+var isTimeOver = false; // ★ タイムオーバー判定（ミサイルを強制停止するため）
 
 function startFusionEvent(scene) {
     const hero = alliedUnits.getChildren()[0];
@@ -95,7 +96,6 @@ function transitionToShooter(scene, hero) {
 
                     scene.time.delayedCall(800, () => {
                         spaceYOffset = -1280; 
-                        // ★ 背景の宇宙は Depth 250
                         scene.add.rectangle(360, -640, 720, 1280, 0x000000).setDepth(250);
                         scene.add.particles(0, -1400, 'star', { x: { min: 0, max: 720 }, y: 0, lifespan: 3000, speedY: { min: 1000, max: 3000 }, scale: { min: 0.5, max: 1.0 }, alpha: { min: 0.3, max: 0.8 }, quantity: 15, blendMode: 'ADD' }).setDepth(251);
                         scene.cameras.main.pan(360, -640, 2000, 'Sine.easeInOut');
@@ -110,9 +110,9 @@ function transitionToShooter(scene, hero) {
 function startShooterMode(scene, hero) {
     scene.time.timeScale = 1; 
     isShooterMode = true;
+    isTimeOver = false;
     bossAttackCycle = 0; 
     
-    // ★ ヒーローは背景より手前の Depth 260
     hero.setDepth(260); bossEnemy.setDepth(260);
     
     hero.x = 360; hero.y = 200; 
@@ -165,227 +165,242 @@ function startShooterMode(scene, hero) {
                                 timerEvent = scene.time.addEvent({
                                     delay: 1000, loop: true,
                                     callback: () => {
-                                        if (!isShooterMode) return;
+                                        if (!isShooterMode || isTimeOver) return;
                                         timeLeft--;
                                         if (timerTextUI) timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                         
                                         // ★時間切れ
                                         if (timeLeft <= 0) {
                                             isShooterMode = false;
+                                            isTimeOver = true; // ボスの攻撃を完全停止させる
                                             timerEvent.remove();
                                             
-                                            // ★ ヒーローが逃げないように動きを止める（Depthは260のままなので背景に隠れない！）
-                                            if (activeHero && activeHero.body) {
-                                                activeHero.body.setVelocity(0, 0);
-                                                activeHero.body.moves = false; 
+                                            // 進行中のボスの動きを強制ストップ
+                                            scene.tweens.killTweensOf(bossEnemy);
+
+                                            // ★【重要】ヒーローが消えないように「ダミー（影武者）」を作る
+                                            let currentHeroX = 360;
+                                            let currentHeroY = -350;
+                                            let currentHeroW = TILE_SIZE * 1.5;
+                                            let currentHeroH = TILE_SIZE * 1.5;
+
+                                            if (activeHero) {
+                                                currentHeroX = activeHero.x;
+                                                currentHeroY = activeHero.y;
+                                                currentHeroW = activeHero.displayWidth;
+                                                currentHeroH = activeHero.displayHeight;
+                                                // 本物は隠して操作不能にする
+                                                activeHero.setVisible(false);
+                                                if (activeHero.body) activeHero.body.enable = false; 
                                             }
 
-                                            // 1. タイマーの「0」に正確にズームイン
-                                            timerTextUI.setText(`ゲームオーバーまであと 0秒`);
-                                            timerTextUI.setScrollFactor(1);
-                                            timerTextUI.x = scene.cameras.main.scrollX + 30;
-                                            timerTextUI.y = scene.cameras.main.scrollY + 100;
+                                            // ダミーのヒーローを配置（Depth:260 なので背景の手前、ビームの後ろ）
+                                            const cinematicHero = scene.add.sprite(currentHeroX, currentHeroY, 'superhero').setDepth(260);
+                                            cinematicHero.setDisplaySize(currentHeroW, currentHeroH);
+
+                                            // UIをすべて隠す
+                                            timerTextUI.setVisible(false);
+                                            bossUI.forEach(ui => ui.setVisible(false));
+                                            heroShooterUI.forEach(ui => ui.setVisible(false));
+
+                                            // 1. 画面中央に巨大な「0」を出してドカンと拡大
+                                            const zeroText = scene.add.text(360, -640, "0", { 
+                                                fontSize: '250px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 15 
+                                            }).setOrigin(0.5).setDepth(400);
+                                            zeroText.setScale(0.1);
                                             
-                                            let targetX = timerTextUI.x + timerTextUI.width - 40;
-                                            let targetY = timerTextUI.y + 15; 
-
-                                            scene.cameras.main.pan(targetX, targetY, 1500, 'Power2');
-                                            scene.cameras.main.zoomTo(3, 1500, 'Power2');
-
-                                            // 2. ゆっくり引く
-                                            scene.time.delayedCall(2500, () => {
-                                                scene.cameras.main.pan(360, -640, 1500, 'Power2');
-                                                scene.cameras.main.zoomTo(1, 1500, 'Power2');
-
-                                                // UIを隠す
-                                                timerTextUI.setVisible(false);
-                                                bossUI.forEach(ui => ui.setVisible(false));
-                                                heroShooterUI.forEach(ui => ui.setVisible(false));
-
-                                                // ヒーローを画面中央（ビームの真正面）に立たせる
-                                                if (activeHero) {
-                                                    scene.tweens.add({
-                                                        targets: activeHero,
-                                                        x: 360,
-                                                        y: -350, 
-                                                        duration: 1500,
-                                                        ease: 'Power2'
-                                                    });
-                                                }
-
-                                                // 3. ボスがスーッと上へ移動
-                                                scene.time.delayedCall(2000, () => {
-                                                    scene.tweens.killTweensOf(bossEnemy); 
+                                            scene.tweens.add({
+                                                targets: zeroText,
+                                                scaleX: 1.2, scaleY: 1.2,
+                                                duration: 1000, ease: 'Bounce.easeOut',
+                                                onComplete: () => {
                                                     
-                                                    scene.tweens.add({
-                                                        targets: bossEnemy, 
-                                                        y: -1150, 
-                                                        x: 360,
-                                                        duration: 2000,
-                                                        ease: 'Sine.easeInOut',
-                                                        onComplete: () => {
-                                                            // 4. 赤文字のセリフ
-                                                            const winText = scene.add.text(360, bossEnemy.y + 250, "はい！僕の勝ち！", { 
-                                                                fontSize: '60px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 8 
-                                                            }).setOrigin(0.5).setDepth(400);
+                                                    // 2. ちょっと待ってから「0」を消す
+                                                    scene.time.delayedCall(1000, () => {
+                                                        zeroText.destroy();
 
-                                                            scene.time.delayedCall(2000, () => {
-                                                                winText.destroy();
+                                                        // ダミーヒーローを画面中央（ビーム直撃位置）へ強制移動
+                                                        scene.tweens.add({
+                                                            targets: cinematicHero,
+                                                            x: 360,
+                                                            y: -350, 
+                                                            duration: 1500,
+                                                            ease: 'Power2'
+                                                        });
+
+                                                        // 3. ボスがスーッと上へ移動（ワープなし）
+                                                        scene.tweens.add({
+                                                            targets: bossEnemy, 
+                                                            y: -1150, 
+                                                            x: 360,
+                                                            duration: 2000,
+                                                            ease: 'Sine.easeInOut',
+                                                            onComplete: () => {
                                                                 
-                                                                // 5. 横にゆっくり伸びる
-                                                                scene.tweens.add({
-                                                                    targets: bossEnemy, 
-                                                                    displayWidth: 1000, 
-                                                                    displayHeight: 300, 
-                                                                    duration: 1500, 
-                                                                    ease: 'Sine.easeOut',
-                                                                    onComplete: () => {
-                                                                        
-                                                                        // 6. エネルギー球溜め
-                                                                        try { scene.sound.play('charge', { volume: 3.0 }); } catch(e){} 
-                                                                        
-                                                                        const chargeBall = scene.add.circle(360, bossEnemy.y + 150, 10, 0xffffff).setDepth(260);
-                                                                        const chargeAura = scene.add.circle(360, bossEnemy.y + 150, 20, 0x00ffff, 0.6).setDepth(259);
-                                                                        chargeBall.setBlendMode(Phaser.BlendModes.ADD);
-                                                                        chargeAura.setBlendMode(Phaser.BlendModes.ADD);
+                                                                // 4. 赤文字のセリフ
+                                                                const winText = scene.add.text(360, bossEnemy.y + 250, "はい！僕の勝ち！", { 
+                                                                    fontSize: '60px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 8 
+                                                                }).setOrigin(0.5).setDepth(400);
 
-                                                                        scene.tweens.add({
-                                                                            targets: chargeBall, alpha: 0.1, duration: 60, yoyo: true, repeat: -1 
-                                                                        });
+                                                                scene.time.delayedCall(2000, () => {
+                                                                    winText.destroy();
+                                                                    
+                                                                    // 5. 横にゆっくり伸びる
+                                                                    scene.tweens.add({
+                                                                        targets: bossEnemy, 
+                                                                        displayWidth: 1000, 
+                                                                        displayHeight: 300, 
+                                                                        duration: 1500, 
+                                                                        ease: 'Sine.easeOut',
+                                                                        onComplete: () => {
+                                                                            
+                                                                            // 6. エネルギー球溜め
+                                                                            try { scene.sound.play('charge', { volume: 3.0 }); } catch(e){} 
+                                                                            
+                                                                            const chargeBall = scene.add.circle(360, bossEnemy.y + 150, 10, 0xffffff).setDepth(260);
+                                                                            const chargeAura = scene.add.circle(360, bossEnemy.y + 150, 20, 0x00ffff, 0.6).setDepth(259);
+                                                                            chargeBall.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            chargeAura.setBlendMode(Phaser.BlendModes.ADD);
 
-                                                                        scene.tweens.add({
-                                                                            targets: [chargeBall, chargeAura],
-                                                                            radius: 350,
-                                                                            duration: 3000, 
-                                                                            ease: 'Cubic.easeInOut',
-                                                                            onComplete: () => {
-                                                                                chargeBall.destroy();
-                                                                                chargeAura.destroy();
-                                                                                
-                                                                                // 7. 馬鹿でかい楕円形の極太ビーム発射！
-                                                                                try { scene.sound.play('launch', { volume: 4.0 }); } catch(e) {}
-                                                                                
-                                                                                const boomTimer = scene.time.addEvent({
-                                                                                    delay: 150, loop: true,
-                                                                                    callback: () => { try { scene.sound.play('explode', { volume: 2.0 }); } catch(e) {} }
-                                                                                });
+                                                                            scene.tweens.add({
+                                                                                targets: chargeBall, alpha: 0.1, duration: 60, yoyo: true, repeat: -1 
+                                                                            });
 
-                                                                                scene.cameras.main.shake(3000, 0.05);
-
-                                                                                const beamY = bossEnemy.y + 150;
-                                                                                
-                                                                                // ★ ビームのDepthは300番台！
-                                                                                // これにより、Depth260のヒーローを覆い隠して完全に飲み込みます！
-                                                                                const outerBeam = scene.add.ellipse(360, beamY, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(300);
-                                                                                const midBeam = scene.add.ellipse(360, beamY, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(301);
-                                                                                const coreBeam = scene.add.ellipse(360, beamY, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(302);
-                                                                                
-                                                                                outerBeam.scaleY = 0;
-                                                                                midBeam.scaleY = 0;
-                                                                                coreBeam.scaleY = 0;
-
-                                                                                outerBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                midBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                coreBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                
-                                                                                const energyLines = [];
-                                                                                for (let i = 0; i < 40; i++) {
-                                                                                    const lineX = 360 + Phaser.Math.Between(-800, 800);
-                                                                                    const lineW = Phaser.Math.Between(3, 10); 
-                                                                                    const lineH = Phaser.Math.Between(200, 600);
-                                                                                    const line = scene.add.rectangle(lineX, beamY, lineW, lineH, 0xffffff, 0.9).setOrigin(0.5, 0).setDepth(303);
-                                                                                    line.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            scene.tweens.add({
+                                                                                targets: [chargeBall, chargeAura],
+                                                                                radius: 350,
+                                                                                duration: 3000, 
+                                                                                ease: 'Cubic.easeInOut',
+                                                                                onComplete: () => {
+                                                                                    chargeBall.destroy();
+                                                                                    chargeAura.destroy();
                                                                                     
-                                                                                    const lineTween = scene.tweens.add({
-                                                                                        targets: line,
-                                                                                        y: beamY + 3500, 
-                                                                                        duration: Phaser.Math.Between(150, 300),
-                                                                                        repeat: -1,
-                                                                                        delay: Phaser.Math.Between(0, 100)
+                                                                                    // 7. 馬鹿でかい楕円形の極太ビーム発射！
+                                                                                    try { scene.sound.play('launch', { volume: 4.0 }); } catch(e) {}
+                                                                                    
+                                                                                    const boomTimer = scene.time.addEvent({
+                                                                                        delay: 150, loop: true,
+                                                                                        callback: () => { try { scene.sound.play('explode', { volume: 2.0 }); } catch(e) {} }
                                                                                     });
-                                                                                    energyLines.push({ rect: line, tween: lineTween });
-                                                                                }
 
-                                                                                // 楕円ビームを一気に下まで伸ばす
-                                                                                scene.tweens.add({
-                                                                                    targets: [outerBeam, midBeam, coreBeam],
-                                                                                    scaleY: 1, 
-                                                                                    duration: 150, 
-                                                                                    ease: 'Power2',
-                                                                                    onComplete: () => {
-                                                                                        // 8. 1秒間ビームを浴びる
-                                                                                        scene.time.delayedCall(1000, () => {
-                                                                                            
-                                                                                            // 9. ホワイトアウト
-                                                                                            const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(400);
-                                                                                            scene.tweens.add({
-                                                                                                targets: whiteOut,
-                                                                                                alpha: { from: 0, to: 1 },
-                                                                                                duration: 1000,
-                                                                                                onComplete: () => {
-                                                                                                    energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
-                                                                                                    boomTimer.remove(); 
-                                                                                                    
-                                                                                                    // ★ ホワイトアウト後にヒーロー消滅
-                                                                                                    if (activeHero) activeHero.destroy();
-                                                                                                    
-                                                                                                    // =====================================
-                                                                                                    // 10. 星々破壊GIFの連続表示 ＆ 大爆発音
-                                                                                                    // =====================================
-                                                                                                    const gifImg = document.createElement('img');
-                                                                                                    gifImg.src = TIMEOVER_GIF_FILES[0]; 
-                                                                                                    gifImg.style.position = 'absolute';
-                                                                                                    gifImg.style.top = '0';
-                                                                                                    gifImg.style.left = '0';
-                                                                                                    gifImg.style.width = '100vw';
-                                                                                                    gifImg.style.height = '100vh';
-                                                                                                    gifImg.style.objectFit = 'cover';
-                                                                                                    gifImg.style.zIndex = '9999';
-                                                                                                    document.body.appendChild(gifImg);
+                                                                                    scene.cameras.main.shake(3000, 0.05);
 
-                                                                                                    const playExplosion = () => {
-                                                                                                        scene.time.delayedCall(EXPLOSION_SOUND_DELAY, () => {
-                                                                                                            try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
-                                                                                                            scene.cameras.main.shake(2000, 0.08); 
-                                                                                                        });
-                                                                                                    };
-                                                                                                    
-                                                                                                    playExplosion();
+                                                                                    const beamY = bossEnemy.y + 150;
+                                                                                    
+                                                                                    // ★ ビームのDepthは300番台。ダミーヒーロー(260)を完全に飲み込む！
+                                                                                    const outerBeam = scene.add.ellipse(360, beamY, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(300);
+                                                                                    const midBeam = scene.add.ellipse(360, beamY, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(301);
+                                                                                    const coreBeam = scene.add.ellipse(360, beamY, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(302);
+                                                                                    
+                                                                                    outerBeam.scaleY = 0;
+                                                                                    midBeam.scaleY = 0;
+                                                                                    coreBeam.scaleY = 0;
 
-                                                                                                    let currentGifIndex = 0;
-                                                                                                    const gifTimer = setInterval(() => {
-                                                                                                        currentGifIndex++;
-                                                                                                        if (currentGifIndex < TIMEOVER_GIF_FILES.length) {
-                                                                                                            if (TIMEOVER_GIF_FILES[currentGifIndex] && TIMEOVER_GIF_FILES[currentGifIndex] !== '') {
-                                                                                                                gifImg.src = TIMEOVER_GIF_FILES[currentGifIndex];
-                                                                                                                playExplosion();
-                                                                                                            }
-                                                                                                        } else {
-                                                                                                            clearInterval(gifTimer);
-                                                                                                            
-                                                                                                            const overText = document.createElement('div');
-                                                                                                            overText.innerText = 'GAME OVER';
-                                                                                                            overText.style.position = 'absolute';
-                                                                                                            overText.style.top = '50%';
-                                                                                                            overText.style.left = '50%';
-                                                                                                            overText.style.transform = 'translate(-50%, -50%)';
-                                                                                                            overText.style.color = '#ff0000';
-                                                                                                            overText.style.fontSize = '80px';
-                                                                                                            overText.style.fontWeight = 'bold';
-                                                                                                            overText.style.fontFamily = '"Impact", "Arial Black", sans-serif';
-                                                                                                            overText.style.zIndex = '10000';
-                                                                                                            overText.style.textShadow = '0px 0px 15px #000';
-                                                                                                            document.body.appendChild(overText);
-                                                                                                        }
-                                                                                                    }, GIF_CHANGE_INTERVAL);
-                                                                                                }
-                                                                                            });
+                                                                                    outerBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                                    midBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                                    coreBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                                    
+                                                                                    const energyLines = [];
+                                                                                    for (let i = 0; i < 40; i++) {
+                                                                                        const lineX = 360 + Phaser.Math.Between(-800, 800);
+                                                                                        const lineW = Phaser.Math.Between(3, 10); 
+                                                                                        const lineH = Phaser.Math.Between(200, 600);
+                                                                                        const line = scene.add.rectangle(lineX, beamY, lineW, lineH, 0xffffff, 0.9).setOrigin(0.5, 0).setDepth(303);
+                                                                                        line.setBlendMode(Phaser.BlendModes.ADD);
+                                                                                        
+                                                                                        const lineTween = scene.tweens.add({
+                                                                                            targets: line,
+                                                                                            y: beamY + 3500, 
+                                                                                            duration: Phaser.Math.Between(150, 300),
+                                                                                            repeat: -1,
+                                                                                            delay: Phaser.Math.Between(0, 100)
                                                                                         });
+                                                                                        energyLines.push({ rect: line, tween: lineTween });
                                                                                     }
-                                                                                });
-                                                                            }
-                                                                        });
-                                                                    }
+
+                                                                                    // 楕円ビームを一気に下まで伸ばす
+                                                                                    scene.tweens.add({
+                                                                                        targets: [outerBeam, midBeam, coreBeam],
+                                                                                        scaleY: 1, 
+                                                                                        duration: 150, 
+                                                                                        ease: 'Power2',
+                                                                                        onComplete: () => {
+                                                                                            
+                                                                                            // 8. 1秒間ビームを浴びる（この間ヒーローは見えなくなります）
+                                                                                            scene.time.delayedCall(1000, () => {
+                                                                                                
+                                                                                                // 9. ホワイトアウト
+                                                                                                const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(400);
+                                                                                                scene.tweens.add({
+                                                                                                    targets: whiteOut,
+                                                                                                    alpha: { from: 0, to: 1 },
+                                                                                                    duration: 1000,
+                                                                                                    onComplete: () => {
+                                                                                                        energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
+                                                                                                        boomTimer.remove(); 
+                                                                                                        
+                                                                                                        // ★ ホワイトアウト後にダミーヒーローも本物も完全に消去
+                                                                                                        cinematicHero.destroy();
+                                                                                                        if (activeHero) activeHero.destroy();
+                                                                                                        
+                                                                                                        // =====================================
+                                                                                                        // 10. 星々破壊GIFの連続表示 ＆ 大爆発音
+                                                                                                        // =====================================
+                                                                                                        const gifImg = document.createElement('img');
+                                                                                                        gifImg.src = TIMEOVER_GIF_FILES[0]; 
+                                                                                                        gifImg.style.position = 'absolute';
+                                                                                                        gifImg.style.top = '0';
+                                                                                                        gifImg.style.left = '0';
+                                                                                                        gifImg.style.width = '100vw';
+                                                                                                        gifImg.style.height = '100vh';
+                                                                                                        gifImg.style.objectFit = 'cover';
+                                                                                                        gifImg.style.zIndex = '9999';
+                                                                                                        document.body.appendChild(gifImg);
+
+                                                                                                        const playExplosion = () => {
+                                                                                                            scene.time.delayedCall(EXPLOSION_SOUND_DELAY, () => {
+                                                                                                                try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
+                                                                                                                scene.cameras.main.shake(2000, 0.08); 
+                                                                                                            });
+                                                                                                        };
+                                                                                                        
+                                                                                                        playExplosion();
+
+                                                                                                        let currentGifIndex = 0;
+                                                                                                        const gifTimer = setInterval(() => {
+                                                                                                            currentGifIndex++;
+                                                                                                            if (currentGifIndex < TIMEOVER_GIF_FILES.length) {
+                                                                                                                if (TIMEOVER_GIF_FILES[currentGifIndex] && TIMEOVER_GIF_FILES[currentGifIndex] !== '') {
+                                                                                                                    gifImg.src = TIMEOVER_GIF_FILES[currentGifIndex];
+                                                                                                                    playExplosion();
+                                                                                                                }
+                                                                                                            } else {
+                                                                                                                clearInterval(gifTimer);
+                                                                                                                
+                                                                                                                const overText = document.createElement('div');
+                                                                                                                overText.innerText = 'GAME OVER';
+                                                                                                                overText.style.position = 'absolute';
+                                                                                                                overText.style.top = '50%';
+                                                                                                                overText.style.left = '50%';
+                                                                                                                overText.style.transform = 'translate(-50%, -50%)';
+                                                                                                                overText.style.color = '#ff0000';
+                                                                                                                overText.style.fontSize = '80px';
+                                                                                                                overText.style.fontWeight = 'bold';
+                                                                                                                overText.style.fontFamily = '"Impact", "Arial Black", sans-serif';
+                                                                                                                overText.style.zIndex = '10000';
+                                                                                                                overText.style.textShadow = '0px 0px 15px #000';
+                                                                                                                document.body.appendChild(overText);
+                                                                                                            }
+                                                                                                        }, GIF_CHANGE_INTERVAL);
+                                                                                                    }
+                                                                                                });
+                                                                                            });
+                                                                                        }
+                                                                                    });
+                                                                                }
+                                                                            });
+                                                                        }
+                                                                    });
                                                                 });
                                                             });
                                                         }
@@ -408,11 +423,12 @@ function startShooterMode(scene, hero) {
 }
 
 function startBossAttack(scene) {
+    if (isTimeOver) return;
     executeTeleportAttack(scene, 0);
 }
 
 function executeTeleportAttack(scene, count) {
-    if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
+    if (!bossEnemy || !bossEnemy.active || !isShooterMode || isTimeOver) return;
 
     const baseW = 500;
     const baseH = 500;
@@ -422,27 +438,31 @@ function executeTeleportAttack(scene, count) {
         scene.tweens.add({
             targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn', 
             onComplete: () => {
+                if (isTimeOver) return; // ★ タイムオーバー時はここで強制停止！
                 bossEnemy.x = 360; bossEnemy.y = -900; 
                 scene.time.delayedCall(200, () => {
+                    if (isTimeOver) return;
                     try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
                     scene.tweens.add({
                         targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut', 
                         onComplete: () => {
-                            
+                            if (isTimeOver) return;
                             if (bossAttackCycle === 0) {
                                 scene.time.delayedCall(500, () => {
+                                    if (isTimeOver) return;
                                     fireMissile(scene, bossEnemy.x, bossEnemy.y, () => {
+                                        if (isTimeOver) return;
                                         bossAttackCycle = 1; 
                                         scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
                                     });
                                 });
                             } else {
                                 executeBeamSequence(scene, 0, () => {
+                                    if (isTimeOver) return;
                                     bossAttackCycle = 0; 
                                     scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
                                 });
                             }
-
                         }
                     });
                 });
@@ -455,13 +475,16 @@ function executeTeleportAttack(scene, count) {
     scene.tweens.add({
         targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn', 
         onComplete: () => {
+            if (isTimeOver) return;
             bossEnemy.x = Phaser.Math.Between(150, 570);
             bossEnemy.y = Phaser.Math.Between(-1200, -450); 
             scene.time.delayedCall(200, () => { 
+                if (isTimeOver) return;
                 try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
                 scene.tweens.add({
                     targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut', 
                     onComplete: () => {
+                        if (isTimeOver) return;
                         fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
                         executeTeleportAttack(scene, count + 1);
                     }
@@ -472,10 +495,11 @@ function executeTeleportAttack(scene, count) {
 }
 
 function executeBeamSequence(scene, step, onComplete) {
-    if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
+    if (!bossEnemy || !bossEnemy.active || !isShooterMode || isTimeOver) return;
 
     if (step === 0) {
         chargeAndFireBeam(scene, () => {
+            if (isTimeOver) return;
             scene.time.delayedCall(1000, () => executeBeamSequence(scene, 1, onComplete));
         });
     } else {
@@ -487,14 +511,18 @@ function executeBeamSequence(scene, step, onComplete) {
         scene.tweens.add({
             targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn',
             onComplete: () => {
+                if (isTimeOver) return;
                 bossEnemy.x = targetX; bossEnemy.y = targetY;
                 scene.time.delayedCall(200, () => {
+                    if (isTimeOver) return;
                     try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
                     scene.tweens.add({
                         targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut',
                         onComplete: () => {
+                            if (isTimeOver) return;
                             fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
                             chargeAndFireBeam(scene, () => {
+                                if (isTimeOver) return;
                                 if (step === 1) {
                                     scene.time.delayedCall(1000, () => executeBeamSequence(scene, 2, onComplete));
                                 } else {
@@ -510,6 +538,7 @@ function executeBeamSequence(scene, step, onComplete) {
 }
 
 function chargeAndFireBeam(scene, onComplete) {
+    if (isTimeOver) return;
     const chargeBall = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 10, 0xffffff).setDepth(260);
     chargeBall.setBlendMode(Phaser.BlendModes.ADD); 
     
@@ -525,12 +554,14 @@ function chargeAndFireBeam(scene, onComplete) {
         onComplete: () => {
             chargeBall.destroy();
             chargeAura.destroy();
+            if (isTimeOver) return;
             fireBeam(scene, bossEnemy.x, bossEnemy.y + 100, onComplete);
         }
     });
 }
 
 function fireBeam(scene, x, y, onComplete) {
+    if (isTimeOver) return;
     try { scene.sound.play('launch', { volume: 3.0 }); } catch(e) {} 
     
     const outerBeam = scene.add.rectangle(x, y, 220, 0, 0x00ffff, 0.4).setOrigin(0.5, 0).setDepth(250);
@@ -567,11 +598,17 @@ function fireBeam(scene, x, y, onComplete) {
         duration: 150, 
         ease: 'Power2',
         onComplete: () => {
+            if (isTimeOver) {
+                outerBeam.destroy(); midBeam.destroy(); coreBeam.destroy();
+                energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
+                return;
+            }
             scene.cameras.main.shake(800, 0.03);
 
             const checkHit = scene.time.addEvent({
                 delay: 20, loop: true,
                 callback: () => {
+                    if (isTimeOver) { checkHit.remove(); return; }
                     if (activeHero && activeHero.active && isShooterMode) {
                         if (Math.abs(activeHero.x - outerBeam.x) < 110) {
                             takeHeroShooterDamage(scene, 15); 
@@ -597,7 +634,7 @@ function fireBeam(scene, x, y, onComplete) {
                         outerBeam.destroy();
                         midBeam.destroy();
                         coreBeam.destroy();
-                        if (onComplete) onComplete();
+                        if (!isTimeOver && onComplete) onComplete();
                     }
                 });
             });
@@ -606,6 +643,7 @@ function fireBeam(scene, x, y, onComplete) {
 }
 
 function fireMissile(scene, x, y, onComplete) {
+    if (isTimeOver) return; // ★ タイムオーバー時は発射しない
     try { scene.sound.play('launch', { volume: 2.0 }); } catch(e) {} 
     
     const missile = scene.add.sprite(x, y, 'missile').setOrigin(0.5).setDepth(255);
@@ -619,7 +657,12 @@ function fireMissile(scene, x, y, onComplete) {
     const trackEvent = scene.time.addEvent({
         delay: 20, loop: true,
         callback: () => {
-            if (!missile.active || !isShooterMode) { trackEvent.remove(); return; }
+            // ★ タイムオーバー時は途中で消滅させる
+            if (!missile.active || !isShooterMode || isTimeOver) { 
+                if (isTimeOver && missile.active) missile.destroy();
+                trackEvent.remove(); 
+                return; 
+            }
 
             trackingTimer += 20; 
 
@@ -649,6 +692,7 @@ function fireMissile(scene, x, y, onComplete) {
 }
 
 function explodeMissile(scene, missile, trackEvent, onComplete) {
+    if (isTimeOver) return;
     trackEvent.remove(); 
     const exX = missile.x;
     const exY = missile.y;
@@ -667,6 +711,7 @@ function explodeMissile(scene, missile, trackEvent, onComplete) {
 }
 
 function fireCircleBullets(scene, x, y) {
+    if (isTimeOver) return; // ★ タイムオーバー時は撃たない
     try { scene.sound.play('shoot'); } catch(e) {}
     
     const numBullets = 32; 
@@ -682,7 +727,11 @@ function fireCircleBullets(scene, x, y) {
         const checkEvent = scene.time.addEvent({
             delay: 20, loop: true,
             callback: () => {
-                if (!bullet.active) { checkEvent.remove(); return; }
+                if (!bullet.active || isTimeOver) { 
+                    if (isTimeOver && bullet.active) bullet.destroy();
+                    checkEvent.remove(); 
+                    return; 
+                }
                 
                 if (bullet.y < -1380 || bullet.y > 100 || bullet.x < -100 || bullet.x > 820) {
                     bullet.destroy();
@@ -702,6 +751,7 @@ function fireCircleBullets(scene, x, y) {
 }
 
 function takeHeroShooterDamage(scene, amount) {
+    if (isTimeOver) return; // ★ タイムオーバー時はダメージを受けない
     globalHP -= amount;
     if (globalHP < 0) globalHP = 0;
     
@@ -732,7 +782,7 @@ function startAutoShooting(scene, hero) {
         delay: 150, 
         loop: true,
         callback: () => {
-            if (!isShooterMode || !hero.active) return;
+            if (!isShooterMode || !hero.active || isTimeOver) return; // ★ タイムオーバー時は弾を撃たない
             
             const bullet = scene.add.sprite(hero.x, hero.y - 50, 'arrow').setOrigin(0.5).setDepth(255);
             bullet.setDisplaySize(40, 100); 
@@ -744,7 +794,11 @@ function startAutoShooting(scene, hero) {
             const checkHitEvent = scene.time.addEvent({
                 delay: 20, loop: true,
                 callback: () => {
-                    if (!bullet.active) { checkHitEvent.remove(); return; }
+                    if (!bullet.active || isTimeOver) { 
+                        if (isTimeOver && bullet.active) bullet.destroy();
+                        checkHitEvent.remove(); 
+                        return; 
+                    }
                     
                     if (bullet.y < -1380) { 
                         bullet.destroy();
