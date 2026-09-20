@@ -1,6 +1,7 @@
 // ==========================================
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
+var bossAttackCycle = 0; // ★攻撃のサイクル（0=ミサイル、1=ビーム）を管理
 
 function startFusionEvent(scene) {
     const hero = alliedUnits.getChildren()[0];
@@ -89,6 +90,7 @@ function transitionToShooter(scene, hero) {
 function startShooterMode(scene, hero) {
     scene.time.timeScale = 1; 
     isShooterMode = true;
+    bossAttackCycle = 0; // ★ここでサイクルをリセット
     
     hero.setDepth(260); bossEnemy.setDepth(260);
     
@@ -171,32 +173,36 @@ function executeTeleportAttack(scene, count) {
     const baseW = 500;
     const baseH = 500;
 
-    // ★5回目(count === 4)は中央上に現れてミサイル準備！
+    // ★5回目は中央上に現れる
     if (count === 4) {
         try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
         scene.tweens.add({
-            targets: bossEnemy,
-            displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, 
-            duration: 300, ease: 'Expo.easeIn', 
+            targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn', 
             onComplete: () => {
-                // 中央のちょっと上に配置
-                bossEnemy.x = 360;
-                bossEnemy.y = -900; 
-                
+                bossEnemy.x = 360; bossEnemy.y = -900; 
                 scene.time.delayedCall(200, () => {
                     try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
                     scene.tweens.add({
-                        targets: bossEnemy,
-                        displayWidth: baseW, displayHeight: baseH, alpha: 1,
-                        duration: 300, ease: 'Expo.easeOut', 
+                        targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut', 
                         onComplete: () => {
-                            // ★0.5秒タメてからミサイル発射！
-                            scene.time.delayedCall(500, () => {
-                                fireMissile(scene, bossEnemy.x, bossEnemy.y, () => {
-                                    // ミサイル処理が完全に終わったら（爆発したら）次の攻撃へループ
+                            
+                            // ★ここでサイクル分岐！
+                            if (bossAttackCycle === 0) {
+                                // 1回目はミサイル攻撃
+                                scene.time.delayedCall(500, () => {
+                                    fireMissile(scene, bossEnemy.x, bossEnemy.y, () => {
+                                        bossAttackCycle = 1; // 次はビーム
+                                        scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
+                                    });
+                                });
+                            } else {
+                                // 2回目はビーム攻撃（真ん中→左→右）
+                                executeBeamSequence(scene, 0, () => {
+                                    bossAttackCycle = 0; // 次はミサイルに戻る
                                     scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
                                 });
-                            });
+                            }
+
                         }
                     });
                 });
@@ -207,30 +213,17 @@ function executeTeleportAttack(scene, count) {
 
     // ★1〜4回目（通常のワープ＆円状攻撃）
     try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
-
     scene.tweens.add({
-        targets: bossEnemy,
-        displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, 
-        duration: 300, // ★タメ時間短縮
-        ease: 'Expo.easeIn', 
+        targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn', 
         onComplete: () => {
-            // ★瞬間移動の範囲を画面上から4/5（かなり下）までに拡大
-            const randomX = Phaser.Math.Between(150, 570);
-            const randomY = Phaser.Math.Between(-1200, -450); 
-            bossEnemy.x = randomX;
-            bossEnemy.y = randomY;
-
+            bossEnemy.x = Phaser.Math.Between(150, 570);
+            bossEnemy.y = Phaser.Math.Between(-1200, -450); 
             scene.time.delayedCall(200, () => { 
                 try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
-
                 scene.tweens.add({
-                    targets: bossEnemy,
-                    displayWidth: baseW, displayHeight: baseH, alpha: 1,
-                    duration: 300,
-                    ease: 'Expo.easeOut', 
+                    targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut', 
                     onComplete: () => {
                         fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
-                        // 次の回へ
                         executeTeleportAttack(scene, count + 1);
                     }
                 });
@@ -240,53 +233,145 @@ function executeTeleportAttack(scene, count) {
 }
 
 // ==========================================
-// ★新規追加：追尾ミサイル発射＆着弾爆発処理（1秒で追尾終了）
+// ★ビーム攻撃シーケンス（真ん中→左→右）
+// ==========================================
+function executeBeamSequence(scene, step, onComplete) {
+    if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
+
+    if (step === 0) {
+        // すでに真ん中にいるので、そのままタメてビーム
+        chargeAndFireBeam(scene, () => {
+            scene.time.delayedCall(1000, () => executeBeamSequence(scene, 1, onComplete));
+        });
+    } else {
+        // 左または右へのワープ
+        const targetX = (step === 1) ? 150 : 570;
+        const targetY = -900;
+        
+        try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
+        const baseW = 500, baseH = 500;
+        scene.tweens.add({
+            targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn',
+            onComplete: () => {
+                bossEnemy.x = targetX; bossEnemy.y = targetY;
+                scene.time.delayedCall(200, () => {
+                    try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
+                    scene.tweens.add({
+                        targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut',
+                        onComplete: () => {
+                            // ★円状画像付き（ばらまき）
+                            fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
+                            
+                            // タメてビーム
+                            chargeAndFireBeam(scene, () => {
+                                if (step === 1) {
+                                    scene.time.delayedCall(1000, () => executeBeamSequence(scene, 2, onComplete));
+                                } else {
+                                    if (onComplete) onComplete();
+                                }
+                            });
+                        }
+                    });
+                });
+            }
+        });
+    }
+}
+
+// ビームのタメ演出
+function chargeAndFireBeam(scene, onComplete) {
+    const chargeBall = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 10, 0x00ffff).setDepth(260);
+    chargeBall.setBlendMode(Phaser.BlendModes.ADD); // 光る演出
+    
+    scene.tweens.add({
+        targets: chargeBall, radius: 100, duration: 1500, ease: 'Cubic.easeInOut',
+        onStart: () => { try { scene.sound.play('roar'); } catch(e){} }, 
+        onComplete: () => {
+            chargeBall.destroy();
+            fireBeam(scene, bossEnemy.x, bossEnemy.y + 100, onComplete);
+        }
+    });
+}
+
+// 極太ビーム発射
+function fireBeam(scene, x, y, onComplete) {
+    const beam = scene.add.rectangle(x, y, 150, 0, 0x00ffff).setOrigin(0.5, 0).setDepth(250);
+    beam.setBlendMode(Phaser.BlendModes.ADD);
+    scene.physics.add.existing(beam);
+    try { scene.sound.play('launch', { volume: 3.0 }); } catch(e) {} 
+    
+    scene.tweens.add({
+        targets: beam, height: 2500, duration: 300, ease: 'Power2',
+        onComplete: () => {
+            // ヒーローがビームに触れているかチェック
+            const checkHit = scene.time.addEvent({
+                delay: 20, loop: true,
+                callback: () => {
+                    if (activeHero && activeHero.active && isShooterMode) {
+                        if (Math.abs(activeHero.x - beam.x) < 75) {
+                            takeHeroShooterDamage(scene, 15); // ビームの中にいると連続ダメージ
+                        }
+                    }
+                }
+            });
+
+            // 1秒間照射して消滅
+            scene.time.delayedCall(1000, () => {
+                checkHit.remove();
+                scene.tweens.add({
+                    targets: beam, alpha: 0, width: 0, duration: 300,
+                    onComplete: () => {
+                        beam.destroy();
+                        if (onComplete) onComplete();
+                    }
+                });
+            });
+        }
+    });
+}
+
+
+// ==========================================
+// ★追尾ミサイル処理
 // ==========================================
 function fireMissile(scene, x, y, onComplete) {
-    // ★ご自身の用意した発射音を鳴らす
     try { scene.sound.play('launch', { volume: 2.0 }); } catch(e) {} 
     
-    // ★新しいミサイル画像をセット
     const missile = scene.add.sprite(x, y, 'missile').setOrigin(0.5).setDepth(255);
-    missile.setDisplaySize(90, 150); // ミサイルのサイズ
+    missile.setDisplaySize(90, 150); 
     scene.physics.add.existing(missile);
     
-    let speed = 550; // ミサイルの飛ぶ速度
-    let currentAngle = Math.PI / 2; // 最初は真下(90度)を向いて発射
-    let trackingTimer = 0; // ★追尾した時間を測るタイマー
+    let speed = 550; 
+    let currentAngle = Math.PI / 2; // 下向き
+    let trackingTimer = 0; 
 
     const trackEvent = scene.time.addEvent({
         delay: 20, loop: true,
         callback: () => {
             if (!missile.active || !isShooterMode) { trackEvent.remove(); return; }
 
-            trackingTimer += 20; // ★20ミリ秒ずつカウントアップ
+            trackingTimer += 20; 
 
-            // 1. ほんの少しだけヒーローを追尾する処理（★1秒＝1000ミリ秒以内限定！）
-            if (trackingTimer <= 1000 && activeHero && activeHero.active) {
-                // ヒーローがいる方向の角度を計算
+            // ★追尾時間を2秒（2000ミリ秒）に延長！
+            if (trackingTimer <= 2000 && activeHero && activeHero.active) {
                 const targetAngle = Phaser.Math.Angle.Between(missile.x, missile.y, activeHero.x, activeHero.y);
-                // 現在の角度と目標の角度の差分を計算
                 let diff = Phaser.Math.Angle.Wrap(targetAngle - currentAngle);
-                // 0.04ずつゆっくりと角度を変える
                 currentAngle += diff * 0.04; 
             }
 
-            // ミサイルの向きと進む方向を更新
-            missile.rotation = currentAngle + Math.PI / 2; 
+            // ★画像が最初から下を向いているので、-90度（Math.PI / 2）して真っ直ぐ前を向かせる！
+            missile.rotation = currentAngle - Math.PI / 2; 
             missile.body.setVelocity(Math.cos(currentAngle) * speed, Math.sin(currentAngle) * speed);
 
-            // 2. ヒーローとの当たり判定（直撃したら大ダメージ）
             if (activeHero && activeHero.active) {
                 const dist = Phaser.Math.Distance.Between(missile.x, missile.y, activeHero.x, activeHero.y);
                 if (dist < 40) {
                     explodeMissile(scene, missile, trackEvent, onComplete);
-                    takeHeroShooterDamage(scene, 200); // 直撃は痛い
+                    takeHeroShooterDamage(scene, 200); 
                     return;
                 }
             }
 
-            // 3. 画面の端（上下左右）に着弾したら爆発してばらまく！
             if (missile.y > 0 || missile.y < -1350 || missile.x < 0 || missile.x > 720) {
                 explodeMissile(scene, missile, trackEvent, onComplete);
             }
@@ -294,46 +379,35 @@ function fireMissile(scene, x, y, onComplete) {
     });
 }
 
-// ミサイルの爆発処理（音、光、弾のばらまき）
 function explodeMissile(scene, missile, trackEvent, onComplete) {
-    trackEvent.remove(); // 追尾＆移動を止める
+    trackEvent.remove(); 
     const exX = missile.x;
     const exY = missile.y;
-    missile.destroy(); // ミサイル本体を消す
+    missile.destroy(); 
 
-    // ★ご自身の用意した爆発音を鳴らす
     try { scene.sound.play('explode', { volume: 2.0 }); } catch(e) {}
     
-    // 爆発のフラッシュ演出（オレンジ色の円がパッと広がる）
     const flash = scene.add.circle(exX, exY, 120, 0xff8800).setDepth(260);
     scene.tweens.add({
         targets: flash, alpha: 0, scale: 2.5, duration: 300, ease: 'Power2',
         onComplete: () => flash.destroy()
     });
 
-    // 爆発地点を中心に、いつもの円状弾をばらまく！
     fireCircleBullets(scene, exX, exY);
-
-    // 爆発が終わったことを報告して、ボスの次の攻撃へ
     if (onComplete) onComplete();
 }
 
-// ==========================================
-// 円状に弾をばらまく処理（10%減らして32発に）
-// ==========================================
 function fireCircleBullets(scene, x, y) {
     try { scene.sound.play('shoot'); } catch(e) {}
     
-    const numBullets = 32; // ★36発から約10%削減
+    const numBullets = 32; 
     const speed = 400; 
 
     for (let i = 0; i < numBullets; i++) {
         const angle = (i * (360 / numBullets)) * (Math.PI / 180);
-        
         const bullet = scene.add.sprite(x, y, 'enemy2').setOrigin(0.5).setDepth(255);
         bullet.setDisplaySize(40, 40); 
         scene.physics.add.existing(bullet);
-        
         bullet.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
         
         const checkEvent = scene.time.addEvent({
