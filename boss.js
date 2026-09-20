@@ -148,18 +148,18 @@ function startShooterMode(scene, hero) {
                                         timeLeft--;
                                         if (timerTextUI) timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                         
-                                        // ★時間切れの演出
+                                        // ★時間切れ
                                         if (timeLeft <= 0) {
                                             isShooterMode = false;
                                             timerEvent.remove();
                                             
-                                            // ★ ヒーローの操作を完全に切って逃げられないようにする
+                                            // ヒーローの操作を無効化
                                             if (activeHero && activeHero.body) {
                                                 activeHero.body.setVelocity(0, 0);
                                                 activeHero.body.enable = false; 
                                             }
 
-                                            // 1. タイマーの「0」に正確にズームイン
+                                            // 1. タイマーの「0」にズームイン
                                             timerTextUI.setText(`ゲームオーバーまであと 0秒`);
                                             timerTextUI.setScrollFactor(1);
                                             timerTextUI.x = scene.cameras.main.scrollX + 30;
@@ -176,12 +176,12 @@ function startShooterMode(scene, hero) {
                                                 scene.cameras.main.pan(360, -640, 1500, 'Power2');
                                                 scene.cameras.main.zoomTo(1, 1500, 'Power2');
 
-                                                // UIをすべて隠す
+                                                // UIを隠す
                                                 timerTextUI.setVisible(false);
                                                 bossUI.forEach(ui => ui.setVisible(false));
                                                 heroShooterUI.forEach(ui => ui.setVisible(false));
 
-                                                // ヒーローをビームの「奥」へ
+                                                // ヒーローを画面中央に移動し、ビームの「奥（Depth:240）」に置く
                                                 if (activeHero) {
                                                     scene.tweens.add({
                                                         targets: activeHero,
@@ -204,7 +204,7 @@ function startShooterMode(scene, hero) {
                                                         duration: 2000,
                                                         ease: 'Sine.easeInOut',
                                                         onComplete: () => {
-                                                            // 4. 赤文字のセリフ表示
+                                                            // 4. 赤文字のセリフ
                                                             const winText = scene.add.text(360, bossEnemy.y + 250, "はい！僕の勝ち！", { 
                                                                 fontSize: '60px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 8 
                                                             }).setOrigin(0.5).setDepth(400);
@@ -303,19 +303,13 @@ function startShooterMode(scene, hero) {
                                                                                                 onComplete: () => {
                                                                                                     energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
                                                                                                     boomTimer.remove(); 
+                                                                                                    
+                                                                                                    // ★ヒーローがビームに完全に飲まれてから消滅
                                                                                                     if (activeHero) activeHero.destroy();
                                                                                                     
-                                                                                                    // =====================================
-                                                                                                    // 10. 星々破壊GIFの連続表示 ＆ 大爆発音
-                                                                                                    // =====================================
-                                                                                                    // ★ ご用意いただいたGIFファイルの名前を順番に並べてください（何枚でもOKです）
-                                                                                                    const gifFiles = ['destroy1.gif', 'destroy2.gif', 'destroy3.gif']; 
-                                                                                                    
-                                                                                                    // ★ 次のGIF画像に切り替わるまでの時間（ミリ秒）
-                                                                                                    const gifChangeInterval = 2500; 
-
+                                                                                                    // 10. 星々破壊GIF＆大爆発音
                                                                                                     const gifImg = document.createElement('img');
-                                                                                                    gifImg.src = gifFiles[0]; 
+                                                                                                    gifImg.src = 'destroy.gif'; 
                                                                                                     gifImg.style.position = 'absolute';
                                                                                                     gifImg.style.top = '0';
                                                                                                     gifImg.style.left = '0';
@@ -325,38 +319,26 @@ function startShooterMode(scene, hero) {
                                                                                                     gifImg.style.zIndex = '9999';
                                                                                                     document.body.appendChild(gifImg);
 
-                                                                                                    // 最初のGIF表示と同時に爆発音＆画面揺れ
+                                                                                                    // 爆発音と画面揺らし
                                                                                                     try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
                                                                                                     scene.cameras.main.shake(2000, 0.08); 
 
-                                                                                                    let currentGifIndex = 0;
-                                                                                                    const gifTimer = setInterval(() => {
-                                                                                                        currentGifIndex++;
-                                                                                                        if (currentGifIndex < gifFiles.length) {
-                                                                                                            // 次の画像に切り替え
-                                                                                                            gifImg.src = gifFiles[currentGifIndex];
-                                                                                                            // 画像が切り替わるたびに爆発音と揺れを追加
-                                                                                                            try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
-                                                                                                            scene.cameras.main.shake(2000, 0.08);
-                                                                                                        } else {
-                                                                                                            // すべてのGIFを表示し終えたらGAME OVER
-                                                                                                            clearInterval(gifTimer);
-                                                                                                            
-                                                                                                            const overText = document.createElement('div');
-                                                                                                            overText.innerText = 'GAME OVER';
-                                                                                                            overText.style.position = 'absolute';
-                                                                                                            overText.style.top = '50%';
-                                                                                                            overText.style.left = '50%';
-                                                                                                            overText.style.transform = 'translate(-50%, -50%)';
-                                                                                                            overText.style.color = '#ff0000';
-                                                                                                            overText.style.fontSize = '80px';
-                                                                                                            overText.style.fontWeight = 'bold';
-                                                                                                            overText.style.fontFamily = '"Impact", "Arial Black", sans-serif';
-                                                                                                            overText.style.zIndex = '10000';
-                                                                                                            overText.style.textShadow = '0px 0px 15px #000';
-                                                                                                            document.body.appendChild(overText);
-                                                                                                        }
-                                                                                                    }, gifChangeInterval);
+                                                                                                    // ゲームオーバー表示
+                                                                                                    setTimeout(() => {
+                                                                                                        const overText = document.createElement('div');
+                                                                                                        overText.innerText = 'GAME OVER';
+                                                                                                        overText.style.position = 'absolute';
+                                                                                                        overText.style.top = '50%';
+                                                                                                        overText.style.left = '50%';
+                                                                                                        overText.style.transform = 'translate(-50%, -50%)';
+                                                                                                        overText.style.color = '#ff0000';
+                                                                                                        overText.style.fontSize = '80px';
+                                                                                                        overText.style.fontWeight = 'bold';
+                                                                                                        overText.style.fontFamily = '"Impact", "Arial Black", sans-serif';
+                                                                                                        overText.style.zIndex = '10000';
+                                                                                                        overText.style.textShadow = '0px 0px 15px #000';
+                                                                                                        document.body.appendChild(overText);
+                                                                                                    }, 3000); 
                                                                                                 }
                                                                                             });
                                                                                         });
