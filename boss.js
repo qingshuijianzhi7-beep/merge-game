@@ -1,4 +1,18 @@
 // ==========================================
+// ★ GIFと音のタイミング設定
+// ==========================================
+
+// ↓ ここを「const」ではなく「var」にしました！これで絶対にフリーズしません！
+var TIMEOVER_GIF_FILES = [
+    'destroy1.gif', // 1枚目
+    'destroy2.gif', // 2枚目
+    'destroy3.gif', // 3枚目
+    'destroy4.gif'  // 4枚目（後で作るもの）
+];
+var GIF_CHANGE_INTERVAL = 3000;
+var EXPLOSION_SOUND_DELAY = 1000;
+
+// ==========================================
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
 var bossAttackCycle = 0; 
@@ -183,10 +197,9 @@ function startShooterMode(scene, hero) {
                                             const cinematicHero = scene.add.sprite(currentHeroX, currentHeroY, 'superhero').setDepth(260);
                                             cinematicHero.setDisplaySize(currentW, currentH);
 
-                                            // UIを隠す
                                             timerTextUI.setVisible(false);
-                                            if (typeof bossUI !== 'undefined') bossUI.forEach(ui => { if(ui) ui.setVisible(false); });
-                                            if (typeof heroShooterUI !== 'undefined') heroShooterUI.forEach(ui => { if(ui) ui.setVisible(false); });
+                                            bossUI.forEach(ui => { if(ui) ui.setVisible(false); });
+                                            heroShooterUI.forEach(ui => { if(ui) ui.setVisible(false); });
 
                                             // 1. 画面中央に馬鹿でかい「0」を出す
                                             const zeroText = scene.add.text(360, -640, "0", { 
@@ -320,14 +333,9 @@ function startShooterMode(scene, hero) {
                                                                                                         
                                                                                                         // =====================================
                                                                                                         // 9. 星々破壊GIFの連続表示 ＆ 大爆発音
-                                                                                                        // ★ 変数を外から内部に移動させ、エラーを完全防止！
                                                                                                         // =====================================
-                                                                                                        const gifFiles = ['destroy1.gif', 'destroy2.gif', 'destroy3.gif', 'destroy4.gif'];
-                                                                                                        const gifInterval = 3000;
-                                                                                                        const expDelay = 1000;
-
                                                                                                         const gifImg = document.createElement('img');
-                                                                                                        gifImg.src = gifFiles[0]; 
+                                                                                                        gifImg.src = TIMEOVER_GIF_FILES[0]; 
                                                                                                         gifImg.style.position = 'absolute';
                                                                                                         gifImg.style.top = '0';
                                                                                                         gifImg.style.left = '0';
@@ -338,7 +346,7 @@ function startShooterMode(scene, hero) {
                                                                                                         document.body.appendChild(gifImg);
 
                                                                                                         const playExplosion = () => {
-                                                                                                            scene.time.delayedCall(expDelay, () => {
+                                                                                                            scene.time.delayedCall(EXPLOSION_SOUND_DELAY, () => {
                                                                                                                 try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
                                                                                                                 scene.cameras.main.shake(2000, 0.08); 
                                                                                                             });
@@ -349,8 +357,8 @@ function startShooterMode(scene, hero) {
                                                                                                         let currentGifIndex = 0;
                                                                                                         const gifTimer = setInterval(() => {
                                                                                                             currentGifIndex++;
-                                                                                                            if (currentGifIndex < gifFiles.length) {
-                                                                                                                gifImg.src = gifFiles[currentGifIndex];
+                                                                                                            if (currentGifIndex < TIMEOVER_GIF_FILES.length) {
+                                                                                                                gifImg.src = TIMEOVER_GIF_FILES[currentGifIndex];
                                                                                                                 playExplosion();
                                                                                                             } else {
                                                                                                                 clearInterval(gifTimer);
@@ -368,7 +376,7 @@ function startShooterMode(scene, hero) {
                                                                                                                 overText.style.textShadow = '0px 0px 15px #000';
                                                                                                                 document.body.appendChild(overText);
                                                                                                             }
-                                                                                                        }, gifInterval);
+                                                                                                        }, GIF_CHANGE_INTERVAL);
                                                                                                     }
                                                                                                 });
                                                                                             });
