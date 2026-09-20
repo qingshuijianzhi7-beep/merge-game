@@ -278,50 +278,99 @@ function executeBeamSequence(scene, step, onComplete) {
     }
 }
 
-// ビームのタメ演出
+// ==========================================
+// ★ 超絶リアルな極太ビーム攻撃
+// ==========================================
 function chargeAndFireBeam(scene, onComplete) {
-    const chargeBall = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 10, 0x00ffff).setDepth(260);
-    chargeBall.setBlendMode(Phaser.BlendModes.ADD); // 光る演出
+    // タメ演出の光
+    const chargeBall = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 10, 0xffffff).setDepth(260);
+    chargeBall.setBlendMode(Phaser.BlendModes.ADD); 
     
+    // タメ演出のオーラ（水色）
+    const chargeAura = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 20, 0x00ffff, 0.5).setDepth(259);
+    chargeAura.setBlendMode(Phaser.BlendModes.ADD);
+
     scene.tweens.add({
-        targets: chargeBall, radius: 100, duration: 1500, ease: 'Cubic.easeInOut',
+        targets: [chargeBall, chargeAura], 
+        radius: 120, // 巨大化
+        duration: 1500, 
+        ease: 'Cubic.easeInOut',
         onStart: () => { try { scene.sound.play('roar'); } catch(e){} }, 
         onComplete: () => {
             chargeBall.destroy();
+            chargeAura.destroy();
             fireBeam(scene, bossEnemy.x, bossEnemy.y + 100, onComplete);
         }
     });
 }
 
-// 極太ビーム発射
 function fireBeam(scene, x, y, onComplete) {
-    const beam = scene.add.rectangle(x, y, 150, 0, 0x00ffff).setOrigin(0.5, 0).setDepth(250);
-    beam.setBlendMode(Phaser.BlendModes.ADD);
-    scene.physics.add.existing(beam);
     try { scene.sound.play('launch', { volume: 3.0 }); } catch(e) {} 
     
+    // 1. 外側のぼんやりした水色オーラ（幅広・半透明）
+    const outerBeam = scene.add.rectangle(x, y, 220, 0, 0x00ffff, 0.4).setOrigin(0.5, 0).setDepth(250);
+    outerBeam.setBlendMode(Phaser.BlendModes.ADD); // 光の加算合成で境界を曖昧に
+    scene.physics.add.existing(outerBeam);
+
+    // 2. 中間層の少し明るい水色
+    const midBeam = scene.add.rectangle(x, y, 140, 0, 0x88ffff, 0.7).setOrigin(0.5, 0).setDepth(251);
+    midBeam.setBlendMode(Phaser.BlendModes.ADD);
+
+    // 3. 芯となる真っ白な極太レーザー
+    const coreBeam = scene.add.rectangle(x, y, 60, 0, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(252);
+    coreBeam.setBlendMode(Phaser.BlendModes.ADD);
+
+    // 4. ビームの流れ（下に向かって激しく流れるパーティクル）
+    const beamParticles = scene.add.particles(0, 0, 'star', {
+        x: { min: x - 60, max: x + 60 },
+        y: y,
+        speedY: { min: 2000, max: 4500 }, // 猛スピードで下に流れる
+        lifespan: 400,
+        scale: { start: 1.5, end: 0.2 },
+        alpha: { start: 0.8, end: 0 },
+        tint: 0x00ffff, // 水色
+        blendMode: 'ADD',
+        emitting: true
+    }).setDepth(253);
+
+    // ビームをドカン！と一気に下まで伸ばす
     scene.tweens.add({
-        targets: beam, height: 2500, duration: 300, ease: 'Power2',
+        targets: [outerBeam, midBeam, coreBeam], 
+        height: 2500, // 画面下まで突き抜ける長さ
+        duration: 150, // 一瞬で伸びる
+        ease: 'Power2',
         onComplete: () => {
-            // ヒーローがビームに触れているかチェック
+            // 画面が激しく揺れる
+            scene.cameras.main.shake(800, 0.03);
+
+            // ヒーローがビーム（外側の太い部分）に触れているか判定
             const checkHit = scene.time.addEvent({
                 delay: 20, loop: true,
                 callback: () => {
                     if (activeHero && activeHero.active && isShooterMode) {
-                        if (Math.abs(activeHero.x - beam.x) < 75) {
-                            takeHeroShooterDamage(scene, 15); // ビームの中にいると連続ダメージ
+                        // outerBeamの幅(220)の半分以内に入ったらダメージ
+                        if (Math.abs(activeHero.x - outerBeam.x) < 110) {
+                            takeHeroShooterDamage(scene, 15); // 連続ダメージ
                         }
                     }
                 }
             });
 
-            // 1秒間照射して消滅
+            // 1秒間照射し続けてから、細くなって消える
             scene.time.delayedCall(1000, () => {
                 checkHit.remove();
+                beamParticles.stop(); // パーティクルを止める
+
                 scene.tweens.add({
-                    targets: beam, alpha: 0, width: 0, duration: 300,
+                    targets: [outerBeam, midBeam, coreBeam], 
+                    width: 0, // シュッと細くなって消える
+                    alpha: 0, 
+                    duration: 300,
                     onComplete: () => {
-                        beam.destroy();
+                        outerBeam.destroy();
+                        midBeam.destroy();
+                        coreBeam.destroy();
+                        scene.time.delayedCall(500, () => beamParticles.destroy());
                         if (onComplete) onComplete();
                     }
                 });
@@ -329,7 +378,6 @@ function fireBeam(scene, x, y, onComplete) {
         }
     });
 }
-
 
 // ==========================================
 // ★追尾ミサイル処理
