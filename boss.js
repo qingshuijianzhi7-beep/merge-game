@@ -1,7 +1,7 @@
 // ==========================================
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
-var bossAttackCycle = 0; // ★攻撃のサイクル（0=ミサイル、1=ビーム）を管理
+var bossAttackCycle = 0; // 攻撃のサイクル（0=ミサイル、1=ビーム）を管理
 
 function startFusionEvent(scene) {
     const hero = alliedUnits.getChildren()[0];
@@ -90,7 +90,7 @@ function transitionToShooter(scene, hero) {
 function startShooterMode(scene, hero) {
     scene.time.timeScale = 1; 
     isShooterMode = true;
-    bossAttackCycle = 0; // ここでサイクルをリセット
+    bossAttackCycle = 0; 
     
     hero.setDepth(260); bossEnemy.setDepth(260);
     
@@ -139,7 +139,7 @@ function startShooterMode(scene, hero) {
                                 timerTextUI.setVisible(true);
                                 
                                 // ==========================================
-                                // ★ タイマーとタイムオーバー時の絶望演出
+                                // ★ タイマーとタイムオーバー時の絶望演出（ゆっくり）
                                 // ==========================================
                                 timerEvent = scene.time.addEvent({
                                     delay: 1000, loop: true,
@@ -154,70 +154,124 @@ function startShooterMode(scene, hero) {
                                             timerEvent.remove();
                                             if (activeHero && activeHero.body) activeHero.body.setVelocity(0, 0);
 
-                                            // 1. タイマーUIをワールド座標に固定して「0」にズームイン！
+                                            // 1. テキストをワールド座標に固定して、「0」の部分に正確にズームイン
+                                            timerTextUI.setText(`ゲームオーバーまであと 0秒`);
                                             timerTextUI.setScrollFactor(1);
-                                            timerTextUI.y = scene.cameras.main.scrollY + 100; 
-                                            scene.cameras.main.pan(timerTextUI.x + 150, timerTextUI.y, 800, 'Power2');
-                                            scene.cameras.main.zoomTo(2.5, 800, 'Power2');
+                                            // 画面上の(30, 100)を現在のカメラのワールド座標に変換
+                                            timerTextUI.x = scene.cameras.main.scrollX + 30;
+                                            timerTextUI.y = scene.cameras.main.scrollY + 100;
+                                            
+                                            // テキストの右端（「0秒」のあたり）を狙う
+                                            let targetX = timerTextUI.x + timerTextUI.width - 40;
+                                            let targetY = timerTextUI.y + 15; // 縦も少し中心へ
 
-                                            // 2. 引く（元の位置・ズーム率へ戻る）
-                                            scene.time.delayedCall(1500, () => {
-                                                scene.cameras.main.pan(360, -640, 800, 'Power2');
-                                                scene.cameras.main.zoomTo(1, 800, 'Power2');
+                                            // ゆったりとズームイン
+                                            scene.cameras.main.pan(targetX, targetY, 1500, 'Power2');
+                                            scene.cameras.main.zoomTo(3, 1500, 'Power2');
 
-                                                // 3. ボスが画面上部に移動し、画面いっぱいに広がる
-                                                scene.time.delayedCall(800, () => {
+                                            // 2. ズーム後、たっぷり間を取ってからゆっくり引く
+                                            scene.time.delayedCall(2500, () => {
+                                                scene.cameras.main.pan(360, -640, 1500, 'Power2');
+                                                scene.cameras.main.zoomTo(1, 1500, 'Power2');
+
+                                                // 3. ボスが画面上部に移動し、ゆっくりと画面いっぱいに広がる
+                                                scene.time.delayedCall(2000, () => {
                                                     scene.tweens.killTweensOf(bossEnemy); // 既存の動きを止める
                                                     try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
                                                     
                                                     scene.tweens.add({
-                                                        targets: bossEnemy, displayHeight: 0, alpha: 0, duration: 300,
+                                                        targets: bossEnemy, displayHeight: 0, alpha: 0, duration: 500,
                                                         onComplete: () => {
                                                             bossEnemy.x = 360; 
                                                             bossEnemy.y = -1150; // 画面一番上
                                                             try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e) {}
                                                             
-                                                            // 横に平べったく巨大化
+                                                            // 横に平べったく巨大化（ゆっくり1.5秒かけて）
                                                             scene.tweens.add({
                                                                 targets: bossEnemy, 
                                                                 displayWidth: 1000, // 画面幅を超える
                                                                 displayHeight: 300, 
                                                                 alpha: 1, 
-                                                                duration: 600, 
-                                                                ease: 'Bounce.easeOut',
+                                                                duration: 1500, 
+                                                                ease: 'Sine.easeOut',
                                                                 onComplete: () => {
-                                                                    // 4. 馬鹿でかい扇状の極太ビーム発射！
-                                                                    try { scene.sound.play('launch', { volume: 4.0 }); } catch(e) {}
+                                                                    
+                                                                    // 4. エネルギーを球状に溜める（激しく点滅）
                                                                     try { scene.sound.play('roar', { volume: 3.0 }); } catch(e) {}
-                                                                    scene.cameras.main.shake(2000, 0.05);
+                                                                    const chargeBall = scene.add.circle(360, bossEnemy.y + 150, 10, 0xffffff).setDepth(260);
+                                                                    const chargeAura = scene.add.circle(360, bossEnemy.y + 150, 20, 0x00ffff, 0.6).setDepth(259);
+                                                                    chargeBall.setBlendMode(Phaser.BlendModes.ADD);
+                                                                    chargeAura.setBlendMode(Phaser.BlendModes.ADD);
 
-                                                                    // 扇状ビームの描画（Graphicsを使用）
-                                                                    const beamGraphics = scene.add.graphics({ fillStyle: { color: 0x00ffff, alpha: 0.9 } }).setDepth(350);
-                                                                    beamGraphics.setBlendMode(Phaser.BlendModes.ADD);
-                                                                    
-                                                                    // 三角形で扇状を作る
-                                                                    const topX = 360, topY = bossEnemy.y + 100;
-                                                                    const leftX = -500, rightX = 1220, bottomY = 500;
-                                                                    const triangle = new Phaser.Geom.Triangle(topX, topY, leftX, bottomY, rightX, bottomY);
-                                                                    beamGraphics.fillTriangleShape(triangle);
-                                                                    
-                                                                    beamGraphics.setAlpha(0);
+                                                                    // 点滅させる
                                                                     scene.tweens.add({
-                                                                        targets: beamGraphics,
-                                                                        alpha: 1,
-                                                                        duration: 100,
+                                                                        targets: chargeBall,
+                                                                        alpha: 0.1,
+                                                                        duration: 60,
                                                                         yoyo: true,
-                                                                        repeat: 8, // 激しくフラッシュ
+                                                                        repeat: -1 // ずっと点滅
+                                                                    });
+
+                                                                    // 2.5秒かけて巨大化
+                                                                    scene.tweens.add({
+                                                                        targets: [chargeBall, chargeAura],
+                                                                        radius: 250,
+                                                                        duration: 2500, 
+                                                                        ease: 'Cubic.easeInOut',
                                                                         onComplete: () => {
-                                                                            // 5. 画面真っ白 → GAME OVER
-                                                                            const whiteOut = scene.add.rectangle(360, -640, 2000, 2000, 0xffffff).setDepth(400);
+                                                                            chargeBall.destroy();
+                                                                            chargeAura.destroy();
+                                                                            
+                                                                            // 5. 馬鹿でかい楕円形の極太ビーム発射！
+                                                                            try { scene.sound.play('launch', { volume: 4.0 }); } catch(e) {}
+                                                                            try { scene.sound.play('explode', { volume: 3.0 }); } catch(e) {}
+                                                                            scene.cameras.main.shake(3000, 0.05);
+
+                                                                            const beamY = bossEnemy.y + 150;
+                                                                            
+                                                                            // 楕円（Ellipse）を使用してビームを描画
+                                                                            const outerBeam = scene.add.ellipse(360, beamY, 1200, 0, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(250);
+                                                                            const midBeam = scene.add.ellipse(360, beamY, 800, 0, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(251);
+                                                                            const coreBeam = scene.add.ellipse(360, beamY, 400, 0, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(252);
+                                                                            
+                                                                            outerBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            midBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            coreBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            
+                                                                            // 広範囲のパーティクル
+                                                                            const beamParticles = scene.add.particles(0, 0, 'star', {
+                                                                                x: { min: -200, max: 920 },
+                                                                                y: beamY,
+                                                                                speedY: { min: 3000, max: 6000 },
+                                                                                lifespan: 500,
+                                                                                scale: { start: 2.0, end: 0.5 },
+                                                                                alpha: { start: 0.8, end: 0 },
+                                                                                tint: 0x00ffff,
+                                                                                blendMode: 'ADD',
+                                                                                emitting: true
+                                                                            }).setDepth(253);
+
+                                                                            // 楕円ビームを一気に下まで伸ばす
                                                                             scene.tweens.add({
-                                                                                targets: whiteOut,
-                                                                                alpha: { from: 0, to: 1 },
-                                                                                duration: 400,
+                                                                                targets: [outerBeam, midBeam, coreBeam],
+                                                                                height: 3000,
+                                                                                duration: 250, 
+                                                                                ease: 'Power2',
                                                                                 onComplete: () => {
-                                                                                    scene.add.text(360, -640, 'GAME OVER', { fontSize: '100px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 10 }).setOrigin(0.5).setDepth(500);
-                                                                                    if (activeHero) activeHero.destroy();
+                                                                                    // 6. 画面をゆっくり真っ白にして GAME OVER
+                                                                                    scene.time.delayedCall(500, () => {
+                                                                                        const whiteOut = scene.add.rectangle(360, -640, 2000, 2000, 0xffffff).setDepth(400);
+                                                                                        scene.tweens.add({
+                                                                                            targets: whiteOut,
+                                                                                            alpha: { from: 0, to: 1 },
+                                                                                            duration: 1500, // ゆっくり白くする
+                                                                                            onComplete: () => {
+                                                                                                beamParticles.stop();
+                                                                                                scene.add.text(360, -640, 'GAME OVER', { fontSize: '100px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 10 }).setOrigin(0.5).setDepth(500);
+                                                                                                if (activeHero) activeHero.destroy();
+                                                                                            }
+                                                                                        });
+                                                                                    });
                                                                                 }
                                                                             });
                                                                         }
@@ -266,19 +320,18 @@ function executeTeleportAttack(scene, count) {
                         targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut', 
                         onComplete: () => {
                             
-                            // ★ここでサイクル分岐！
                             if (bossAttackCycle === 0) {
                                 // 1回目はミサイル攻撃
                                 scene.time.delayedCall(500, () => {
                                     fireMissile(scene, bossEnemy.x, bossEnemy.y, () => {
-                                        bossAttackCycle = 1; // 次はビーム
+                                        bossAttackCycle = 1; 
                                         scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
                                     });
                                 });
                             } else {
                                 // 2回目はビーム攻撃（真ん中→左→右）
                                 executeBeamSequence(scene, 0, () => {
-                                    bossAttackCycle = 0; // 次はミサイルに戻る
+                                    bossAttackCycle = 0; 
                                     scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
                                 });
                             }
@@ -291,7 +344,7 @@ function executeTeleportAttack(scene, count) {
         return;
     }
 
-    // ★1〜4回目（通常のワープ＆円状攻撃）
+    // 通常のワープ＆円状攻撃
     try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
     scene.tweens.add({
         targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn', 
@@ -313,18 +366,16 @@ function executeTeleportAttack(scene, count) {
 }
 
 // ==========================================
-// ★ビーム攻撃シーケンス（真ん中→左→右）
+// ビーム攻撃シーケンス（真ん中→左→右）
 // ==========================================
 function executeBeamSequence(scene, step, onComplete) {
     if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
 
     if (step === 0) {
-        // すでに真ん中にいるので、そのままタメてビーム
         chargeAndFireBeam(scene, () => {
             scene.time.delayedCall(1000, () => executeBeamSequence(scene, 1, onComplete));
         });
     } else {
-        // 左または右へのワープ
         const targetX = (step === 1) ? 150 : 570;
         const targetY = -900;
         
@@ -339,10 +390,7 @@ function executeBeamSequence(scene, step, onComplete) {
                     scene.tweens.add({
                         targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut',
                         onComplete: () => {
-                            // ★円状画像付き（ばらまき）
                             fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
-                            
-                            // タメてビーム
                             chargeAndFireBeam(scene, () => {
                                 if (step === 1) {
                                     scene.time.delayedCall(1000, () => executeBeamSequence(scene, 2, onComplete));
@@ -359,7 +407,7 @@ function executeBeamSequence(scene, step, onComplete) {
 }
 
 // ==========================================
-// ★ 超絶リアルな極太ビーム攻撃（エネルギー流つき）
+// 通常の極太ビーム攻撃（エネルギー流つき）
 // ==========================================
 function chargeAndFireBeam(scene, onComplete) {
     const chargeBall = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 10, 0xffffff).setDepth(260);
@@ -395,18 +443,17 @@ function fireBeam(scene, x, y, onComplete) {
     const coreBeam = scene.add.rectangle(x, y, 60, 0, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(252);
     coreBeam.setBlendMode(Phaser.BlendModes.ADD);
 
-    // ★ ビームの中をほとばしる細いエネルギー線
     const energyLines = [];
     for (let i = 0; i < 15; i++) {
         const lineX = x + Phaser.Math.Between(-40, 40);
-        const lineW = Phaser.Math.Between(1, 4); // 細い線
+        const lineW = Phaser.Math.Between(1, 4); 
         const lineH = Phaser.Math.Between(100, 300);
         const line = scene.add.rectangle(lineX, y, lineW, lineH, 0xffffff, 0.9).setOrigin(0.5, 0).setDepth(253);
         line.setBlendMode(Phaser.BlendModes.ADD);
         
         const lineTween = scene.tweens.add({
             targets: line,
-            y: y + 2500, // 猛スピードで下に流れる
+            y: y + 2500, 
             duration: Phaser.Math.Between(150, 350),
             repeat: -1,
             delay: Phaser.Math.Between(0, 200)
@@ -436,7 +483,6 @@ function fireBeam(scene, x, y, onComplete) {
             scene.time.delayedCall(1000, () => {
                 checkHit.remove();
                 
-                // エネルギー線を消す
                 energyLines.forEach(item => {
                     item.tween.remove();
                     item.rect.destroy();
@@ -460,7 +506,7 @@ function fireBeam(scene, x, y, onComplete) {
 }
 
 // ==========================================
-// ★追尾ミサイル処理
+// 追尾ミサイル処理
 // ==========================================
 function fireMissile(scene, x, y, onComplete) {
     try { scene.sound.play('launch', { volume: 2.0 }); } catch(e) {} 
@@ -470,7 +516,7 @@ function fireMissile(scene, x, y, onComplete) {
     scene.physics.add.existing(missile);
     
     let speed = 550; 
-    let currentAngle = Math.PI / 2; // 下向き
+    let currentAngle = Math.PI / 2; 
     let trackingTimer = 0; 
 
     const trackEvent = scene.time.addEvent({
@@ -480,7 +526,6 @@ function fireMissile(scene, x, y, onComplete) {
 
             trackingTimer += 20; 
 
-            // 追尾時間を2秒に
             if (trackingTimer <= 2000 && activeHero && activeHero.active) {
                 const targetAngle = Phaser.Math.Angle.Between(missile.x, missile.y, activeHero.x, activeHero.y);
                 let diff = Phaser.Math.Angle.Wrap(targetAngle - currentAngle);
@@ -575,7 +620,6 @@ function takeHeroShooterDamage(scene, amount) {
         });
     }
 
-    // HP0でのゲームオーバー処理（タイムオーバーとは別）
     if (globalHP <= 0 && isShooterMode) {
         isShooterMode = false;
         if (timerEvent) timerEvent.remove();
