@@ -139,7 +139,7 @@ function startShooterMode(scene, hero) {
                                 timerTextUI.setVisible(true);
                                 
                                 // ==========================================
-                                // ★ タイムオーバー時の絶望演出
+                                // ★ タイムオーバー時の絶望演出（ゆっくり）
                                 // ==========================================
                                 timerEvent = scene.time.addEvent({
                                     delay: 1000, loop: true,
@@ -148,10 +148,22 @@ function startShooterMode(scene, hero) {
                                         timeLeft--;
                                         if (timerTextUI) timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                         
+                                        // ★時間切れの演出
                                         if (timeLeft <= 0) {
                                             isShooterMode = false;
                                             timerEvent.remove();
-                                            if (activeHero && activeHero.body) activeHero.body.setVelocity(0, 0);
+                                            
+                                            // ★ ヒーローが逃げられないように画面中央へ強制移動！
+                                            if (activeHero && activeHero.body) {
+                                                activeHero.body.setVelocity(0, 0);
+                                                scene.tweens.add({
+                                                    targets: activeHero,
+                                                    x: 360,
+                                                    y: -300, // 画面中央やや下
+                                                    duration: 1500,
+                                                    ease: 'Power2'
+                                                });
+                                            }
 
                                             // 1. タイマーの「0」に正確にズームイン
                                             timerTextUI.setText(`ゲームオーバーまであと 0秒`);
@@ -223,15 +235,20 @@ function startShooterMode(scene, hero) {
                                                                                 
                                                                                 // 7. 馬鹿でかい楕円形の極太ビーム発射！
                                                                                 try { scene.sound.play('launch', { volume: 4.0 }); } catch(e) {}
+                                                                                try { scene.sound.play('explode', { volume: 3.0 }); } catch(e) {}
                                                                                 scene.cameras.main.shake(3000, 0.05);
 
                                                                                 const beamY = bossEnemy.y + 150;
                                                                                 
-                                                                                // 画面を覆い尽くすほどの超巨大な楕円（ミニビームテイスト）
-                                                                                const outerBeam = scene.add.ellipse(360, beamY, 2000, 0, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(250);
-                                                                                const midBeam = scene.add.ellipse(360, beamY, 1200, 0, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(251);
-                                                                                const coreBeam = scene.add.ellipse(360, beamY, 600, 0, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(252);
+                                                                                // ★ 画面を覆い尽くすほどの超巨大な楕円（PhaserのEllipse描画バグ対策のため、scaleYを使用）
+                                                                                const outerBeam = scene.add.ellipse(360, beamY, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(250);
+                                                                                const midBeam = scene.add.ellipse(360, beamY, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(251);
+                                                                                const coreBeam = scene.add.ellipse(360, beamY, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(252);
                                                                                 
+                                                                                outerBeam.scaleY = 0;
+                                                                                midBeam.scaleY = 0;
+                                                                                coreBeam.scaleY = 0;
+
                                                                                 outerBeam.setBlendMode(Phaser.BlendModes.ADD);
                                                                                 midBeam.setBlendMode(Phaser.BlendModes.ADD);
                                                                                 coreBeam.setBlendMode(Phaser.BlendModes.ADD);
@@ -247,18 +264,18 @@ function startShooterMode(scene, hero) {
                                                                                     
                                                                                     const lineTween = scene.tweens.add({
                                                                                         targets: line,
-                                                                                        y: beamY + 3000, 
-                                                                                        duration: Phaser.Math.Between(100, 200),
+                                                                                        y: beamY + 3500, 
+                                                                                        duration: Phaser.Math.Between(150, 300),
                                                                                         repeat: -1,
                                                                                         delay: Phaser.Math.Between(0, 100)
                                                                                     });
                                                                                     energyLines.push({ rect: line, tween: lineTween });
                                                                                 }
 
-                                                                                // 楕円ビームを一気に下まで伸ばす
+                                                                                // 楕円ビームを一気に下まで伸ばす（scaleYを1にする）
                                                                                 scene.tweens.add({
                                                                                     targets: [outerBeam, midBeam, coreBeam],
-                                                                                    height: 3500, // 画面を完全に突き抜ける
+                                                                                    scaleY: 1, 
                                                                                     duration: 150, 
                                                                                     ease: 'Power2',
                                                                                     onComplete: () => {
@@ -275,11 +292,9 @@ function startShooterMode(scene, hero) {
                                                                                                     energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
                                                                                                     if (activeHero) activeHero.destroy();
                                                                                                     
-                                                                                                    // 10. 星々破壊GIF＆大爆発音の表示 (HTML要素としてオーバーレイ)
-                                                                                                    try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
-                                                                                                    
+                                                                                                    // 10. 星々破壊GIF＆大爆発音の表示
                                                                                                     const gifImg = document.createElement('img');
-                                                                                                    gifImg.src = 'destroy.gif'; // ★ご自身のGIFファイル名
+                                                                                                    gifImg.src = 'destroy.gif'; 
                                                                                                     gifImg.style.position = 'absolute';
                                                                                                     gifImg.style.top = '0';
                                                                                                     gifImg.style.left = '0';
@@ -289,7 +304,13 @@ function startShooterMode(scene, hero) {
                                                                                                     gifImg.style.zIndex = '9999';
                                                                                                     document.body.appendChild(gifImg);
 
-                                                                                                    // 3秒後にGAME OVER表示
+                                                                                                    const explosionDelay = 0; 
+                                                                                                    
+                                                                                                    scene.time.delayedCall(explosionDelay, () => {
+                                                                                                        try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
+                                                                                                        scene.cameras.main.shake(2000, 0.08); 
+                                                                                                    });
+
                                                                                                     setTimeout(() => {
                                                                                                         const overText = document.createElement('div');
                                                                                                         overText.innerText = 'GAME OVER';
@@ -304,7 +325,7 @@ function startShooterMode(scene, hero) {
                                                                                                         overText.style.zIndex = '10000';
                                                                                                         overText.style.textShadow = '0px 0px 15px #000';
                                                                                                         document.body.appendChild(overText);
-                                                                                                    }, 3000);
+                                                                                                    }, explosionDelay + 3000); 
                                                                                                 }
                                                                                             });
                                                                                         });
@@ -344,7 +365,6 @@ function executeTeleportAttack(scene, count) {
     const baseW = 500;
     const baseH = 500;
 
-    // ★5回目は中央上に現れる
     if (count === 4) {
         try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
         scene.tweens.add({
@@ -358,7 +378,6 @@ function executeTeleportAttack(scene, count) {
                         onComplete: () => {
                             
                             if (bossAttackCycle === 0) {
-                                // 1回目はミサイル攻撃
                                 scene.time.delayedCall(500, () => {
                                     fireMissile(scene, bossEnemy.x, bossEnemy.y, () => {
                                         bossAttackCycle = 1; 
@@ -366,7 +385,6 @@ function executeTeleportAttack(scene, count) {
                                     });
                                 });
                             } else {
-                                // 2回目はビーム攻撃（真ん中→左→右）
                                 executeBeamSequence(scene, 0, () => {
                                     bossAttackCycle = 0; 
                                     scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
@@ -381,7 +399,6 @@ function executeTeleportAttack(scene, count) {
         return;
     }
 
-    // 通常のワープ＆円状攻撃
     try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e) {}
     scene.tweens.add({
         targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn', 
@@ -402,9 +419,6 @@ function executeTeleportAttack(scene, count) {
     });
 }
 
-// ==========================================
-// ビーム攻撃シーケンス（真ん中→左→右）
-// ==========================================
 function executeBeamSequence(scene, step, onComplete) {
     if (!bossEnemy || !bossEnemy.active || !isShooterMode) return;
 
@@ -443,9 +457,6 @@ function executeBeamSequence(scene, step, onComplete) {
     }
 }
 
-// ==========================================
-// 通常の極太ビーム攻撃（エネルギー流つき）
-// ==========================================
 function chargeAndFireBeam(scene, onComplete) {
     const chargeBall = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 10, 0xffffff).setDepth(260);
     chargeBall.setBlendMode(Phaser.BlendModes.ADD); 
@@ -542,9 +553,6 @@ function fireBeam(scene, x, y, onComplete) {
     });
 }
 
-// ==========================================
-// 追尾ミサイル処理
-// ==========================================
 function fireMissile(scene, x, y, onComplete) {
     try { scene.sound.play('launch', { volume: 2.0 }); } catch(e) {} 
     
