@@ -39,6 +39,7 @@ function preload() {
     this.load.image('enemy2_roar', 'enemy2_roar.png'); 
     this.load.image('partner', 'partner.png'); 
     this.load.image('superhero', 'superhero.png'); 
+    this.load.image('missile', 'missile.png');
     
     this.load.audio('shoot', 'shoot.mp3');
     this.load.audio('hit', 'hit.mp3');
