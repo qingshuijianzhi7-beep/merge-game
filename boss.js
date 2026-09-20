@@ -139,7 +139,7 @@ function startShooterMode(scene, hero) {
                                 timerTextUI.setVisible(true);
                                 
                                 // ==========================================
-                                // ★ タイムオーバー時の絶望演出（ゆっくり）
+                                // ★ タイムオーバー時の絶望演出（修正版）
                                 // ==========================================
                                 timerEvent = scene.time.addEvent({
                                     delay: 1000, loop: true,
@@ -153,16 +153,10 @@ function startShooterMode(scene, hero) {
                                             isShooterMode = false;
                                             timerEvent.remove();
                                             
-                                            // ★ ヒーローが逃げられないように画面中央へ強制移動！
+                                            // ★ ヒーローの操作（物理）を完全に切って逃げられないようにする
                                             if (activeHero && activeHero.body) {
                                                 activeHero.body.setVelocity(0, 0);
-                                                scene.tweens.add({
-                                                    targets: activeHero,
-                                                    x: 360,
-                                                    y: -300, // 画面中央やや下
-                                                    duration: 1500,
-                                                    ease: 'Power2'
-                                                });
+                                                activeHero.body.enable = false; // 操作不可
                                             }
 
                                             // 1. タイマーの「0」に正確にズームイン
@@ -182,7 +176,24 @@ function startShooterMode(scene, hero) {
                                                 scene.cameras.main.pan(360, -640, 1500, 'Power2');
                                                 scene.cameras.main.zoomTo(1, 1500, 'Power2');
 
-                                                // 3. ボスがスーッと上へ移動（ワープはしない）
+                                                // ★ ここでUIをすべて隠す
+                                                timerTextUI.setVisible(false);
+                                                bossUI.forEach(ui => ui.setVisible(false));
+                                                heroShooterUI.forEach(ui => ui.setVisible(false));
+
+                                                // ★ ヒーローを画面中央下部に強制移動＆手前に表示（確実に映す）
+                                                if (activeHero) {
+                                                    scene.tweens.add({
+                                                        targets: activeHero,
+                                                        x: 360,
+                                                        y: -350, // ビームを真正面から受ける位置
+                                                        duration: 1500,
+                                                        ease: 'Power2'
+                                                    });
+                                                    activeHero.setDepth(350); // ビーム(250)より手前
+                                                }
+
+                                                // 3. ボスがスーッと上へ移動
                                                 scene.time.delayedCall(2000, () => {
                                                     scene.tweens.killTweensOf(bossEnemy); 
                                                     
@@ -235,12 +246,17 @@ function startShooterMode(scene, hero) {
                                                                                 
                                                                                 // 7. 馬鹿でかい楕円形の極太ビーム発射！
                                                                                 try { scene.sound.play('launch', { volume: 4.0 }); } catch(e) {}
-                                                                                try { scene.sound.play('explode', { volume: 3.0 }); } catch(e) {}
+                                                                                
+                                                                                // ★ 爆発音を連続で鳴らし続けるタイマー
+                                                                                const boomTimer = scene.time.addEvent({
+                                                                                    delay: 150, loop: true,
+                                                                                    callback: () => { try { scene.sound.play('explode', { volume: 2.0 }); } catch(e) {} }
+                                                                                });
+
                                                                                 scene.cameras.main.shake(3000, 0.05);
 
                                                                                 const beamY = bossEnemy.y + 150;
                                                                                 
-                                                                                // ★ 画面を覆い尽くすほどの超巨大な楕円（PhaserのEllipse描画バグ対策のため、scaleYを使用）
                                                                                 const outerBeam = scene.add.ellipse(360, beamY, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(250);
                                                                                 const midBeam = scene.add.ellipse(360, beamY, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(251);
                                                                                 const coreBeam = scene.add.ellipse(360, beamY, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(252);
@@ -253,7 +269,6 @@ function startShooterMode(scene, hero) {
                                                                                 midBeam.setBlendMode(Phaser.BlendModes.ADD);
                                                                                 coreBeam.setBlendMode(Phaser.BlendModes.ADD);
                                                                                 
-                                                                                // ほとばしるエネルギー線（多数）
                                                                                 const energyLines = [];
                                                                                 for (let i = 0; i < 40; i++) {
                                                                                     const lineX = 360 + Phaser.Math.Between(-800, 800);
@@ -272,7 +287,7 @@ function startShooterMode(scene, hero) {
                                                                                     energyLines.push({ rect: line, tween: lineTween });
                                                                                 }
 
-                                                                                // 楕円ビームを一気に下まで伸ばす（scaleYを1にする）
+                                                                                // 楕円ビームを一気に下まで伸ばす
                                                                                 scene.tweens.add({
                                                                                     targets: [outerBeam, midBeam, coreBeam],
                                                                                     scaleY: 1, 
@@ -290,9 +305,10 @@ function startShooterMode(scene, hero) {
                                                                                                 duration: 1000,
                                                                                                 onComplete: () => {
                                                                                                     energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
+                                                                                                    boomTimer.remove(); // ★爆発音ストップ
                                                                                                     if (activeHero) activeHero.destroy();
                                                                                                     
-                                                                                                    // 10. 星々破壊GIF＆大爆発音の表示
+                                                                                                    // 10. 星々破壊GIF＆大爆発音
                                                                                                     const gifImg = document.createElement('img');
                                                                                                     gifImg.src = 'destroy.gif'; 
                                                                                                     gifImg.style.position = 'absolute';
