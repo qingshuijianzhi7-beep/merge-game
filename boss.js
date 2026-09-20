@@ -2,7 +2,7 @@
 // ★ GIFと音のタイミング設定
 // ==========================================
 
-// ↓ ここを「const」ではなく「var」にしました！これで絶対にフリーズしません！
+// ↓ 今度こそ絶対に「var」になっています！！！
 var TIMEOVER_GIF_FILES = [
     'destroy1.gif', // 1枚目
     'destroy2.gif', // 2枚目
@@ -88,7 +88,7 @@ function transitionToShooter(scene, hero) {
                 onComplete: () => {
                     hero.setDisplaySize(heroBaseW, heroBaseH); bossEnemy.setDisplaySize(bossBaseW, bossBaseH);
                     
-                    // UIリセット（念のため安全確認を入れて消去）
+                    // UIリセット
                     if (typeof bossUI !== 'undefined' && bossUI) {
                         bossUI.forEach(ui => { if(ui) ui.destroy() }); 
                     }
@@ -198,8 +198,8 @@ function startShooterMode(scene, hero) {
                                             cinematicHero.setDisplaySize(currentW, currentH);
 
                                             timerTextUI.setVisible(false);
-                                            bossUI.forEach(ui => { if(ui) ui.setVisible(false); });
-                                            heroShooterUI.forEach(ui => { if(ui) ui.setVisible(false); });
+                                            if (typeof bossUI !== 'undefined') bossUI.forEach(ui => { if(ui) ui.setVisible(false); });
+                                            if (typeof heroShooterUI !== 'undefined') heroShooterUI.forEach(ui => { if(ui) ui.setVisible(false); });
 
                                             // 1. 画面中央に馬鹿でかい「0」を出す
                                             const zeroText = scene.add.text(360, -640, "0", { 
@@ -358,8 +358,10 @@ function startShooterMode(scene, hero) {
                                                                                                         const gifTimer = setInterval(() => {
                                                                                                             currentGifIndex++;
                                                                                                             if (currentGifIndex < TIMEOVER_GIF_FILES.length) {
-                                                                                                                gifImg.src = TIMEOVER_GIF_FILES[currentGifIndex];
-                                                                                                                playExplosion();
+                                                                                                                if (TIMEOVER_GIF_FILES[currentGifIndex] && TIMEOVER_GIF_FILES[currentGifIndex] !== '') {
+                                                                                                                    gifImg.src = TIMEOVER_GIF_FILES[currentGifIndex];
+                                                                                                                    playExplosion();
+                                                                                                                }
                                                                                                             } else {
                                                                                                                 clearInterval(gifTimer);
                                                                                                                 const overText = document.createElement('div');
@@ -819,3 +821,4 @@ function startAutoShooting(scene, hero) {
         }
     });
 }
+
