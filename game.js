@@ -49,6 +49,7 @@ function preload() {
     this.load.audio('explode', 'explode.mp3');
     this.load.audio('launch', 'launch.mp3');
     this.load.audio('warp_out', 'warp_out.mp3'); 
+    this.load.audio('charge', 'charge.mp3');
     this.load.audio('warp_in', 'warp_in.mp3'); 
     this.load.audio('hero_hit', 'hero_hit.mp3'); 
 }
