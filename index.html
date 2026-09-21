@@ -610,7 +610,7 @@
                                             timeLeft--;
                                             timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                             
-                                            // ★ 0秒になった時の処理（改善版A案：より近くへフォーカス＆ボス消滅防止）
+                                            // ★ 0秒になった時の処理（座標固定＆4倍ズームで完璧にフォーカス）
                                             if (timeLeft <= 0) {
                                                 isTimeOver = true; 
                                                 bossEnemy.setData('timeOver', true);
@@ -626,13 +626,16 @@
                                                 bossUI.forEach(ui => ui.setVisible(false));
                                                 heroShooterUI.forEach(ui => ui.setVisible(false));
 
-                                                // スクロール固定を解除してワールド座標に固定し、文字のど真ん中にガッツリ寄る
+                                                // 現在のカメラのスクロール位置を基準に、左上のタイマーテキストを正確なワールド座標に固定
+                                                const camX = scene.cameras.main.scrollX;
+                                                const camY = scene.cameras.main.scrollY;
                                                 timerTextUI.setScrollFactor(1);
-                                                timerTextUI.y = scene.cameras.main.scrollY + timerTextUI.y; 
-                                                timerTextUI.x = scene.cameras.main.scrollX + timerTextUI.x;
+                                                timerTextUI.x = camX + 30;
+                                                timerTextUI.y = camY + 100;
                                                 
-                                                scene.cameras.main.pan(timerTextUI.x + 180, timerTextUI.y, 800, 'Power2');
-                                                scene.cameras.main.zoomTo(4, 800, 'Power2'); // ズーム倍率を4倍に強化
+                                                // 4倍ズームで文字のど真ん中にピタッと寄る
+                                                scene.cameras.main.pan(camX + 150, camY + 100, 800, 'Power2');
+                                                scene.cameras.main.zoomTo(4, 800, 'Power2');
 
                                                 scene.time.delayedCall(2000, () => {
                                                     // カメラを元に戻す
@@ -743,7 +746,6 @@
                                                                                                         boomTimer.remove(); 
                                                                                                         
                                                                                                         if (activeHero && activeHero.active) activeHero.destroy();
-                                                                                                        // ★修正：最後のビーム終了時にボスが消えないようにしていたのを解除し、ここで綺麗に退場させる
                                                                                                         if (bossEnemy && bossEnemy.active) bossEnemy.destroy();
                                                                                                         
                                                                                                         try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
