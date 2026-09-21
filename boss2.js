@@ -1,20 +1,8 @@
 // ==========================================
-// ★ GIFと音のタイミング設定
-// ==========================================
-var TIMEOVER_GIF_FILES = [
-    'destroy1.gif', // 1枚目
-    'destroy2.gif', // 2枚目
-    'destroy3.gif', // 3枚目
-    'destroy4.gif'  // 4枚目（後で作るもの）
-];
-var GIF_CHANGE_INTERVAL = 3000;
-var EXPLOSION_SOUND_DELAY = 1000;
-
-// ==========================================
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
 var bossAttackCycle = 0; 
-var isTimeOver = false; // タイムオーバー時の攻撃ストッパー
+var isTimeOver = false; 
 
 function startFusionEvent(scene) {
     const hero = alliedUnits.getChildren()[0];
@@ -74,7 +62,8 @@ function startFusionEvent(scene) {
 }
 
 function transitionToShooter(scene, hero) {
-    turnText.setVisible(false);
+    if (typeof turnText !== 'undefined' && turnText) turnText.setVisible(false);
+    
     const heroBaseH = hero.displayHeight; 
     const heroBaseW = hero.displayWidth;
     const bossBaseH = bossEnemy.displayHeight; 
@@ -112,6 +101,8 @@ function startShooterMode(scene, hero) {
     isShooterMode = true;
     isTimeOver = false;
     bossAttackCycle = 0; 
+    
+    bossEnemy.setData('timeOver', false);
     
     hero.setDepth(260); 
     bossEnemy.setDepth(260);
@@ -167,27 +158,30 @@ function startShooterMode(scene, hero) {
                                         timeLeft--;
                                         timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                         
-                                        // ==========================================
-                                        // ★ タイムオーバー時の絶望演出
-                                        // ==========================================
                                         if (timeLeft <= 0) {
                                             isShooterMode = false;
                                             isTimeOver = true; 
+                                            bossEnemy.setData('timeOver', true);
                                             timerEvent.remove();
                                             
                                             scene.tweens.killTweensOf(bossEnemy);
 
-                                            // 普通に本物のヒーローの動きを止めるだけ
+                                            // 普通に本物のヒーローの動きを止める
                                             if (activeHero && activeHero.body) {
                                                 activeHero.body.setVelocity(0, 0);
                                                 activeHero.body.moves = false; 
                                             }
 
+                                            // ダミーのヒーロー（Depth: 260で背景より手前！）
+                                            const cinematicHero = scene.add.sprite(activeHero.x, activeHero.y, 'superhero').setDepth(260);
+                                            cinematicHero.setDisplaySize(activeHero.displayWidth, activeHero.displayHeight);
+                                            activeHero.setVisible(false); // 本物を隠す
+
                                             timerTextUI.setVisible(false);
                                             bossUI.forEach(ui => ui.setVisible(false));
                                             heroShooterUI.forEach(ui => ui.setVisible(false));
 
-                                            // 1. 画面中央に馬鹿でかい「0」を出す
+                                            // 画面中央に馬鹿でかい「0」を出す
                                             const zeroText = scene.add.text(360, -640, "0", { 
                                                 fontSize: '250px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 15 
                                             }).setOrigin(0.5).setDepth(400);
@@ -201,16 +195,16 @@ function startShooterMode(scene, hero) {
                                                     scene.time.delayedCall(1000, () => {
                                                         zeroText.destroy();
 
-                                                        // ヒーローを画面中央（ビーム直撃位置）へ強制移動
+                                                        // ダミーヒーローを画面中央（ビーム直撃位置）へ強制移動
                                                         scene.tweens.add({
-                                                            targets: activeHero,
+                                                            targets: cinematicHero,
                                                             x: 360,
                                                             y: -350, 
                                                             duration: 1500,
                                                             ease: 'Power2'
                                                         });
 
-                                                        // 2. ボスがスーッと上へ移動
+                                                        // ボスがスーッと上へ移動
                                                         scene.tweens.add({
                                                             targets: bossEnemy, 
                                                             y: -1150, 
@@ -225,7 +219,7 @@ function startShooterMode(scene, hero) {
                                                                 scene.time.delayedCall(2000, () => {
                                                                     winText.destroy();
                                                                     
-                                                                    // 3. 横にゆっくり伸びる
+                                                                    // 横にゆっくり伸びる
                                                                     scene.tweens.add({
                                                                         targets: bossEnemy, 
                                                                         displayWidth: 1000, 
@@ -252,7 +246,6 @@ function startShooterMode(scene, hero) {
                                                                                     chargeBall.destroy();
                                                                                     chargeAura.destroy();
                                                                                     
-                                                                                    // 4. 極太ビーム発射！
                                                                                     scene.sound.play('launch', { volume: 4.0 });
                                                                                     
                                                                                     const boomTimer = scene.time.addEvent({
@@ -264,7 +257,7 @@ function startShooterMode(scene, hero) {
 
                                                                                     const beamY = bossEnemy.y + 150;
                                                                                     
-                                                                                    // ★ ビームのDepthは300番台。ヒーロー(260)を完全に飲み込む
+                                                                                    // ★ ビームのDepthは300番台。ダミーヒーロー(260)を完全に飲み込む
                                                                                     const outerBeam = scene.add.ellipse(360, beamY, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(300);
                                                                                     const midBeam = scene.add.ellipse(360, beamY, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(301);
                                                                                     const coreBeam = scene.add.ellipse(360, beamY, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(302);
@@ -295,10 +288,10 @@ function startShooterMode(scene, hero) {
                                                                                         ease: 'Power2',
                                                                                         onComplete: () => {
                                                                                             
-                                                                                            // 5. 1秒間ビームを浴びる
+                                                                                            // 1秒間ビームを浴びる
                                                                                             scene.time.delayedCall(1000, () => {
                                                                                                 
-                                                                                                // 6. ホワイトアウト
+                                                                                                // ホワイトアウト
                                                                                                 const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(400);
                                                                                                 scene.tweens.add({
                                                                                                     targets: whiteOut,
@@ -308,55 +301,20 @@ function startShooterMode(scene, hero) {
                                                                                                         energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
                                                                                                         boomTimer.remove(); 
                                                                                                         
-                                                                                                        // ホワイトアウト後にヒーローを消去
+                                                                                                        // ホワイトアウト後にダミーヒーローも本物も完全に消去
+                                                                                                        if (cinematicHero) cinematicHero.destroy();
                                                                                                         if (activeHero) activeHero.destroy();
+                                                                                                        if (bossEnemy) bossEnemy.destroy();
                                                                                                         
-                                                                                                        // =====================================
-                                                                                                        // 7. 星々破壊GIFの連続表示 ＆ 大爆発音
-                                                                                                        // =====================================
-                                                                                                        const gifImg = document.createElement('img');
-                                                                                                        gifImg.src = TIMEOVER_GIF_FILES[0]; 
-                                                                                                        gifImg.style.position = 'absolute';
-                                                                                                        gifImg.style.top = '0';
-                                                                                                        gifImg.style.left = '0';
-                                                                                                        gifImg.style.width = '100vw';
-                                                                                                        gifImg.style.height = '100vh';
-                                                                                                        gifImg.style.objectFit = 'cover';
-                                                                                                        gifImg.style.zIndex = '9999';
-                                                                                                        document.body.appendChild(gifImg);
-
-                                                                                                        const playExplosion = () => {
-                                                                                                            scene.time.delayedCall(EXPLOSION_SOUND_DELAY, () => {
-                                                                                                                scene.sound.play('mass_explode', { volume: 5.0 });
-                                                                                                                scene.cameras.main.shake(2000, 0.08); 
-                                                                                                            });
-                                                                                                        };
+                                                                                                        // ★ GIFを一切使わず、Phaserの機能だけで大爆発とゲームオーバーを表現！
+                                                                                                        scene.sound.play('mass_explode', { volume: 5.0 });
+                                                                                                        scene.cameras.main.shake(3000, 0.1); 
                                                                                                         
-                                                                                                        playExplosion();
-
-                                                                                                        let currentGifIndex = 0;
-                                                                                                        const gifTimer = setInterval(() => {
-                                                                                                            currentGifIndex++;
-                                                                                                            if (currentGifIndex < TIMEOVER_GIF_FILES.length) {
-                                                                                                                gifImg.src = TIMEOVER_GIF_FILES[currentGifIndex];
-                                                                                                                playExplosion();
-                                                                                                            } else {
-                                                                                                                clearInterval(gifTimer);
-                                                                                                                const overText = document.createElement('div');
-                                                                                                                overText.innerText = 'GAME OVER';
-                                                                                                                overText.style.position = 'absolute';
-                                                                                                                overText.style.top = '50%';
-                                                                                                                overText.style.left = '50%';
-                                                                                                                overText.style.transform = 'translate(-50%, -50%)';
-                                                                                                                overText.style.color = '#ff0000';
-                                                                                                                overText.style.fontSize = '80px';
-                                                                                                                overText.style.fontWeight = 'bold';
-                                                                                                                overText.style.fontFamily = '"Impact", "Arial Black", sans-serif';
-                                                                                                                overText.style.zIndex = '10000';
-                                                                                                                overText.style.textShadow = '0px 0px 15px #000';
-                                                                                                                document.body.appendChild(overText);
-                                                                                                            }
-                                                                                                        }, GIF_CHANGE_INTERVAL);
+                                                                                                        scene.time.delayedCall(2500, () => {
+                                                                                                            scene.add.text(360, -640, 'GAME OVER', { 
+                                                                                                                fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
+                                                                                                            }).setOrigin(0.5).setDepth(500);
+                                                                                                        });
                                                                                                     }
                                                                                                 });
                                                                                             });
@@ -783,9 +741,7 @@ function startAutoShooting(scene, hero) {
 
                             bossHP -= 150; 
                             if (bossHP < 0) bossHP = 0;
-                            if (bossUI && bossUI.length > 1 && bossUI[1]) {
-                                bossUI[1].width = 660 * (bossHP / bossMaxHP);
-                            }
+                            bossUI[1].width = 660 * (bossHP / bossMaxHP);
                             
                             if (bossHP <= 0 && isShooterMode) {
                                 isShooterMode = false;
