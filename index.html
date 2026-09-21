@@ -65,6 +65,11 @@
         this.load.image('superhero', 'superhero.png'); 
         this.load.image('missile', 'missile.png');
         
+        // 猫の走りアニメーション用画像3枚を読み込み
+        this.load.image('cat1', 'cat1.png');
+        this.load.image('cat2', 'cat2.png');
+        this.load.image('cat3', 'cat3.png');
+        
         this.load.audio('shoot', 'shoot.mp3');
         this.load.audio('hit', 'hit.mp3');
         this.load.audio('crowned', 'crowned.mp3');
@@ -83,6 +88,19 @@
         g.fillStyle(0xffffff);
         g.fillRect(0, 0, 3, 3); 
         g.generateTexture('star', 3, 3);
+
+        // 猫の走りアニメーションの定義
+        this.anims.create({
+            key: 'cat_run',
+            frames: [
+                { key: 'cat1' },
+                { key: 'cat2' },
+                { key: 'cat3' }
+            ],
+            frameRate: 15,
+            repeat: -1,
+            yoyo: true // 1→2→3→2→1と滑らかに往復させる
+        });
 
         this.input.on('pointerdown', () => {
             if (this.sound.context && this.sound.context.state === 'suspended') {
@@ -836,11 +854,20 @@
                                             scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
                                         });
                                     });
-                                } else {
+                                } else if (bossAttackCycle === 1) {
                                     executeBeamSequence(scene, 0, () => {
                                         if (isTimeOver) return;
-                                        bossAttackCycle = 0; 
+                                        bossAttackCycle = 2; 
                                         scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
+                                    });
+                                } else {
+                                    scene.time.delayedCall(500, () => {
+                                        if (isTimeOver) return;
+                                        fireCatStampede(scene, bossEnemy.x, bossEnemy.y, () => {
+                                            if (isTimeOver) return;
+                                            bossAttackCycle = 0; 
+                                            scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
+                                        });
                                     });
                                 }
                             }
@@ -1216,6 +1243,67 @@
                     }
                 });
             }
+        });
+    }
+
+    function fireCatStampede(scene, x, y, onComplete) {
+        if (isTimeOver) return;
+
+        const numCats = 40; 
+        const jawY = y + 150; 
+
+        for (let i = 0; i < numCats; i++) {
+            // enemy2の代わりにcat1で生成し、アニメーションを再生させる
+            const cat = scene.add.sprite(x, y, 'cat1').setOrigin(0.5).setDepth(255);
+            cat.setDisplaySize(50, 50); 
+            cat.play('cat_run');
+            scene.physics.add.existing(cat);
+
+            const targetX = Phaser.Math.Between(10, 710);
+            const targetY = jawY + Phaser.Math.Between(-30, 30);
+
+            scene.tweens.add({
+                targets: cat,
+                x: targetX,
+                y: targetY,
+                duration: Phaser.Math.Between(400, 800),
+                ease: 'Power2',
+                onComplete: () => {
+                    if (isTimeOver) {
+                        cat.destroy();
+                        return;
+                    }
+                    cat.body.setVelocityY(Phaser.Math.Between(700, 1100));
+                    
+                    const checkEvent = scene.time.addEvent({
+                        delay: 20, loop: true,
+                        callback: () => {
+                            if (!cat || !cat.active || isTimeOver) { 
+                                if (isTimeOver && cat && cat.active) cat.destroy();
+                                checkEvent.remove(); 
+                                return; 
+                            }
+                            
+                            if (cat.y > 100) { 
+                                cat.destroy();
+                                checkEvent.remove();
+                            } else if (activeHero && activeHero.active) {
+                                const dist = Phaser.Math.Distance.Between(cat.x, cat.y, activeHero.x, activeHero.y);
+                                if (dist < 35) { 
+                                    cat.destroy();
+                                    checkEvent.remove();
+                                    try { scene.sound.play('hero_hit'); } catch(e){}
+                                    takeHeroShooterDamage(scene, 30); 
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        scene.time.delayedCall(3500, () => {
+            if (onComplete) onComplete();
         });
     }
 
