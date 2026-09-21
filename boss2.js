@@ -14,7 +14,7 @@ var EXPLOSION_SOUND_DELAY = 1000;
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
 var bossAttackCycle = 0; 
-var isTimeOver = false; 
+var isTimeOver = false; // タイムオーバー時の攻撃ストッパー
 
 function startFusionEvent(scene) {
     const hero = alliedUnits.getChildren()[0];
@@ -167,7 +167,9 @@ function startShooterMode(scene, hero) {
                                         timeLeft--;
                                         timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                         
-                                        // ★ 時間切れ
+                                        // ==========================================
+                                        // ★ タイムオーバー時の絶望演出
+                                        // ==========================================
                                         if (timeLeft <= 0) {
                                             isShooterMode = false;
                                             isTimeOver = true; 
@@ -175,7 +177,7 @@ function startShooterMode(scene, hero) {
                                             
                                             scene.tweens.killTweensOf(bossEnemy);
 
-                                            // 普通に本物のヒーローの動きを止める
+                                            // 普通に本物のヒーローの動きを止めるだけ
                                             if (activeHero && activeHero.body) {
                                                 activeHero.body.setVelocity(0, 0);
                                                 activeHero.body.moves = false; 
@@ -185,7 +187,7 @@ function startShooterMode(scene, hero) {
                                             bossUI.forEach(ui => ui.setVisible(false));
                                             heroShooterUI.forEach(ui => ui.setVisible(false));
 
-                                            // 画面中央に馬鹿でかい「0」を出す
+                                            // 1. 画面中央に馬鹿でかい「0」を出す
                                             const zeroText = scene.add.text(360, -640, "0", { 
                                                 fontSize: '250px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 15 
                                             }).setOrigin(0.5).setDepth(400);
@@ -199,7 +201,7 @@ function startShooterMode(scene, hero) {
                                                     scene.time.delayedCall(1000, () => {
                                                         zeroText.destroy();
 
-                                                        // ヒーローを画面中央（ビーム直撃位置）へ移動
+                                                        // ヒーローを画面中央（ビーム直撃位置）へ強制移動
                                                         scene.tweens.add({
                                                             targets: activeHero,
                                                             x: 360,
@@ -208,7 +210,7 @@ function startShooterMode(scene, hero) {
                                                             ease: 'Power2'
                                                         });
 
-                                                        // ボスがスーッと上へ移動
+                                                        // 2. ボスがスーッと上へ移動
                                                         scene.tweens.add({
                                                             targets: bossEnemy, 
                                                             y: -1150, 
@@ -223,7 +225,7 @@ function startShooterMode(scene, hero) {
                                                                 scene.time.delayedCall(2000, () => {
                                                                     winText.destroy();
                                                                     
-                                                                    // 横にゆっくり伸びる
+                                                                    // 3. 横にゆっくり伸びる
                                                                     scene.tweens.add({
                                                                         targets: bossEnemy, 
                                                                         displayWidth: 1000, 
@@ -250,7 +252,7 @@ function startShooterMode(scene, hero) {
                                                                                     chargeBall.destroy();
                                                                                     chargeAura.destroy();
                                                                                     
-                                                                                    // 極太ビーム発射！
+                                                                                    // 4. 極太ビーム発射！
                                                                                     scene.sound.play('launch', { volume: 4.0 });
                                                                                     
                                                                                     const boomTimer = scene.time.addEvent({
@@ -293,10 +295,10 @@ function startShooterMode(scene, hero) {
                                                                                         ease: 'Power2',
                                                                                         onComplete: () => {
                                                                                             
-                                                                                            // 1秒間ビームを浴びる
+                                                                                            // 5. 1秒間ビームを浴びる
                                                                                             scene.time.delayedCall(1000, () => {
                                                                                                 
-                                                                                                // ホワイトアウト
+                                                                                                // 6. ホワイトアウト
                                                                                                 const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(400);
                                                                                                 scene.tweens.add({
                                                                                                     targets: whiteOut,
@@ -310,7 +312,7 @@ function startShooterMode(scene, hero) {
                                                                                                         if (activeHero) activeHero.destroy();
                                                                                                         
                                                                                                         // =====================================
-                                                                                                        // 星々破壊GIFの連続表示 ＆ 大爆発音
+                                                                                                        // 7. 星々破壊GIFの連続表示 ＆ 大爆発音
                                                                                                         // =====================================
                                                                                                         const gifImg = document.createElement('img');
                                                                                                         gifImg.src = TIMEOVER_GIF_FILES[0]; 
@@ -781,7 +783,9 @@ function startAutoShooting(scene, hero) {
 
                             bossHP -= 150; 
                             if (bossHP < 0) bossHP = 0;
-                            bossUI[1].width = 660 * (bossHP / bossMaxHP);
+                            if (bossUI && bossUI.length > 1 && bossUI[1]) {
+                                bossUI[1].width = 660 * (bossHP / bossMaxHP);
+                            }
                             
                             if (bossHP <= 0 && isShooterMode) {
                                 isShooterMode = false;
