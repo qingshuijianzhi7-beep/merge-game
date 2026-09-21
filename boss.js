@@ -14,14 +14,19 @@ var EXPLOSION_SOUND_DELAY = 1000;
 // 後半：ボス戦（シューティングモード）の全処理
 // ==========================================
 var bossAttackCycle = 0; 
-var isShooterTimeOver = false; // タイムオーバー時の絶対的な攻撃ストッパー
+var isShooterTimeOver = false;
 
 function startFusionEvent(scene) {
-    // ★ ブラウザのキャッシュが消えて最新版が読み込まれたかどうかの確認用
-    console.log("★ startFusionEvent が正常に呼ばれました！(最新のboss.jsが動いています)");
-
-    const hero = alliedUnits.getChildren()[0];
-    if (!hero) return;
+    // 万が一ヒーローが認識できなくても絶対にフリーズさせない安全対策
+    let hero = null;
+    if (typeof alliedUnits !== 'undefined' && alliedUnits.getChildren().length > 0) {
+        hero = alliedUnits.getChildren()[0];
+    }
+    if (!hero) {
+        // ヒーローがいない場合はダミーを生成して強制進行
+        hero = scene.add.sprite(360, 800, 'hero').setOrigin(0.5);
+        if (typeof TILE_SIZE !== 'undefined') hero.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10);
+    }
     activeHero = hero; 
 
     scene.cameras.main.pan(hero.x, hero.y, 1000, 'Power2');
@@ -30,19 +35,21 @@ function startFusionEvent(scene) {
     scene.time.delayedCall(1700, () => {
         const heroText1 = createDialog(scene, hero.x, hero.y - 70, "やばくね？");
         scene.time.delayedCall(2000, () => {
-            heroText1.destroy();
+            if (heroText1) heroText1.destroy();
             const partner = scene.add.sprite(hero.x + 200, hero.y, 'partner').setOrigin(0.5);
-            partner.setDisplaySize(TILE_SIZE - 10, TILE_SIZE - 10); partner.setDepth(hero.depth + 1);
+            const ts = (typeof TILE_SIZE !== 'undefined') ? TILE_SIZE : 90;
+            partner.setDisplaySize(ts - 10, ts - 10); 
+            partner.setDepth(hero.depth + 1);
 
             scene.tweens.add({
                 targets: partner, x: hero.x + 70, duration: 800, ease: 'Power2.easeOut',
                 onComplete: () => {
                     const partnerText = createDialog(scene, partner.x, partner.y - 70, "合体しよ！");
                     scene.time.delayedCall(2000, () => {
-                        partnerText.destroy();
+                        if (partnerText) partnerText.destroy();
                         const heroText2 = createDialog(scene, hero.x, hero.y - 70, "いいよ！");
                         scene.time.delayedCall(2000, () => {
-                            heroText2.destroy();
+                            if (heroText2) heroText2.destroy();
                             scene.tweens.add({ targets: partner, x: hero.x, duration: 800, ease: 'Power2.easeIn' });
 
                             const flash = scene.add.rectangle(hero.x, hero.y, 3000, 3000, 0xffffff).setOrigin(0.5).setDepth(200);
@@ -51,15 +58,15 @@ function startFusionEvent(scene) {
                             scene.tweens.add({
                                 targets: flash, alpha: 1, duration: 800, yoyo: true, hold: 500,
                                 onYoyo: () => {
-                                    hero.setTexture('superhero'); hero.setDisplaySize(TILE_SIZE * 1.5, TILE_SIZE * 1.5);
-                                    partner.destroy();
-                                    if (hero.getData('text')) hero.getData('text').setVisible(false);
+                                    hero.setTexture('superhero'); hero.setDisplaySize(ts * 1.5, ts * 1.5);
+                                    if (partner) partner.destroy();
+                                    if (hero.getData && hero.getData('text')) hero.getData('text').setVisible(false);
                                 },
                                 onComplete: () => {
-                                    flash.destroy();
+                                    if (flash) flash.destroy();
                                     const heroText3 = createDialog(scene, hero.x, hero.y - 70, "・・・殺す！");
                                     scene.time.delayedCall(2500, () => {
-                                        heroText3.destroy();
+                                        if (heroText3) heroText3.destroy();
                                         scene.cameras.main.pan(360, 640, 1000, 'Power2');
                                         scene.cameras.main.zoomTo(1, 1000, 'Power2');
                                         scene.time.delayedCall(1700, () => { transitionToShooter(scene, hero); });
@@ -75,7 +82,7 @@ function startFusionEvent(scene) {
 }
 
 function transitionToShooter(scene, hero) {
-    turnText.setVisible(false);
+    if (typeof turnText !== 'undefined' && turnText) turnText.setVisible(false);
     const heroBaseH = hero.displayHeight; const heroBaseW = hero.displayWidth;
     const bossBaseH = bossEnemy.displayHeight; const bossBaseW = bossEnemy.displayWidth;
     
@@ -89,7 +96,6 @@ function transitionToShooter(scene, hero) {
                 onComplete: () => {
                     hero.setDisplaySize(heroBaseW, heroBaseH); bossEnemy.setDisplaySize(bossBaseW, bossBaseH);
                     
-                    // UIリセット
                     if (typeof bossUI !== 'undefined' && bossUI) {
                         bossUI.forEach(ui => { if(ui) ui.destroy() }); 
                     }
@@ -114,6 +120,8 @@ function startShooterMode(scene, hero) {
     isShooterTimeOver = false;
     bossAttackCycle = 0; 
     
+    bossEnemy.setData('timeOver', false);
+    
     hero.setDepth(260); bossEnemy.setDepth(260);
     
     hero.x = 360; hero.y = 200; 
@@ -129,7 +137,7 @@ function startShooterMode(scene, hero) {
             const bossNameText = scene.add.text(30, 25, "", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '28px', fill: '#ff3333', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
             bossUI = [bossHpBg, bossHpFill, bossNameText];
 
-            bossHP = bossMaxHP;
+            bossHP = (typeof bossMaxHP !== 'undefined') ? bossMaxHP : 50000;
             globalHP = 1000;
             
             const heroHpBg = scene.add.rectangle(30, 1220, hpBarWidth, 24, 0x555555).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
@@ -160,9 +168,6 @@ function startShooterMode(scene, hero) {
                             onComplete: () => {
                                 timerTextUI.setVisible(true);
                                 
-                                // ==========================================
-                                // ★ タイムオーバー時の絶望演出
-                                // ==========================================
                                 timerEvent = scene.time.addEvent({
                                     delay: 1000, loop: true,
                                     callback: () => {
@@ -170,16 +175,18 @@ function startShooterMode(scene, hero) {
                                         timeLeft--;
                                         if (timerTextUI) timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                         
-                                        // ★ 時間切れ
+                                        // ==========================================
+                                        // ★ タイムオーバー時の絶望演出
+                                        // ==========================================
                                         if (timeLeft <= 0) {
                                             isShooterMode = false;
                                             isShooterTimeOver = true; // ボスの攻撃を完全ストップ
+                                            bossEnemy.setData('timeOver', true);
                                             timerEvent.remove();
                                             
-                                            // ボスの動きを強制停止
                                             scene.tweens.killTweensOf(bossEnemy);
 
-                                            // ★ ヒーローが消えないように「ダミー」を作り、本物を隠す
+                                            // ヒーローが消えないように「ダミー」を作り、本物を隠す
                                             let currentHeroX = 360, currentHeroY = -350, currentW = 120, currentH = 120;
                                             if (activeHero) {
                                                 currentHeroX = activeHero.x;
@@ -225,7 +232,7 @@ function startShooterMode(scene, hero) {
                                                             ease: 'Power2'
                                                         });
 
-                                                        // 2. ボスがスーッと上へ移動（ワープなし）
+                                                        // 2. ボスがスーッと上へ移動
                                                         scene.tweens.add({
                                                             targets: bossEnemy, 
                                                             y: -1150, 
@@ -233,7 +240,6 @@ function startShooterMode(scene, hero) {
                                                             duration: 2000,
                                                             ease: 'Sine.easeInOut',
                                                             onComplete: () => {
-                                                                // 3. 赤文字のセリフ
                                                                 const winText = scene.add.text(360, bossEnemy.y + 250, "はい！僕の勝ち！", { 
                                                                     fontSize: '60px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 8 
                                                                 }).setOrigin(0.5).setDepth(400);
@@ -241,7 +247,7 @@ function startShooterMode(scene, hero) {
                                                                 scene.time.delayedCall(2000, () => {
                                                                     winText.destroy();
                                                                     
-                                                                    // 4. 横にゆっくり伸びる
+                                                                    // 3. 横にゆっくり伸びる
                                                                     scene.tweens.add({
                                                                         targets: bossEnemy, 
                                                                         displayWidth: 1000, 
@@ -250,7 +256,6 @@ function startShooterMode(scene, hero) {
                                                                         ease: 'Sine.easeOut',
                                                                         onComplete: () => {
                                                                             
-                                                                            // 5. エネルギー球溜め
                                                                             try { scene.sound.play('charge', { volume: 3.0 }); } catch(e){} 
                                                                             
                                                                             const chargeBall = scene.add.circle(360, bossEnemy.y + 150, 10, 0xffffff).setDepth(260);
@@ -258,9 +263,7 @@ function startShooterMode(scene, hero) {
                                                                             chargeBall.setBlendMode(Phaser.BlendModes.ADD);
                                                                             chargeAura.setBlendMode(Phaser.BlendModes.ADD);
 
-                                                                            scene.tweens.add({
-                                                                                targets: chargeBall, alpha: 0.1, duration: 60, yoyo: true, repeat: -1 
-                                                                            });
+                                                                            scene.tweens.add({ targets: chargeBall, alpha: 0.1, duration: 60, yoyo: true, repeat: -1 });
 
                                                                             scene.tweens.add({
                                                                                 targets: [chargeBall, chargeAura],
@@ -271,7 +274,7 @@ function startShooterMode(scene, hero) {
                                                                                     chargeBall.destroy();
                                                                                     chargeAura.destroy();
                                                                                     
-                                                                                    // 6. 馬鹿でかい楕円形の極太ビーム発射！
+                                                                                    // 4. 極太ビーム発射！
                                                                                     try { scene.sound.play('launch', { volume: 4.0 }); } catch(e) {}
                                                                                     
                                                                                     const boomTimer = scene.time.addEvent({
@@ -315,10 +318,10 @@ function startShooterMode(scene, hero) {
                                                                                         ease: 'Power2',
                                                                                         onComplete: () => {
                                                                                             
-                                                                                            // 7. 1秒間ビームを浴びる（この間ヒーローはビームに隠れて見えなくなります）
+                                                                                            // 5. 1秒間ビームを浴びる
                                                                                             scene.time.delayedCall(1000, () => {
                                                                                                 
-                                                                                                // 8. ホワイトアウト
+                                                                                                // 6. ホワイトアウト
                                                                                                 const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(400);
                                                                                                 scene.tweens.add({
                                                                                                     targets: whiteOut,
@@ -333,7 +336,7 @@ function startShooterMode(scene, hero) {
                                                                                                         if (activeHero) activeHero.destroy();
                                                                                                         
                                                                                                         // =====================================
-                                                                                                        // 9. 星々破壊GIFの連続表示 ＆ 大爆発音
+                                                                                                        // 7. 星々破壊GIFの連続表示 ＆ 大爆発音
                                                                                                         // =====================================
                                                                                                         const gifImg = document.createElement('img');
                                                                                                         gifImg.src = TIMEOVER_GIF_FILES[0]; 
