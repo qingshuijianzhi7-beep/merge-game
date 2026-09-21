@@ -33,10 +33,12 @@
     var isShooterMode = false;
     var spaceYOffset = 0; 
 
-    var bossHP = 50000;
-    var bossMaxHP = 50000;
+    var bossHP = 45000;
+    var bossMaxHP = 45000;
     var timeLeft = 60;
     var timerTextUI = null;
+    var timerPrefix = null;
+    var timerSuffix = null;
     var timerEvent = null;
 
     var alliedUnits, enemyUnits;
@@ -581,9 +583,12 @@
                 heroShooterUI = [heroHpBg, heroHpFill, heroNameText];
 
                 timeLeft = 60;
-                timerTextUI = scene.add.text(30, 100, `ゲームオーバーまであと ${timeLeft}秒`, { 
-                    fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '26px', fill: '#ff5555', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 
-                }).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                
+                const timerStyle = { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '26px', fill: '#ff5555', fontStyle: 'bold', stroke: '#fff', strokeThickness: 4 };
+                
+                timerPrefix = scene.add.text(30, 100, "ゲームオーバーまであと ", timerStyle).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                timerTextUI = scene.add.text(30 + timerPrefix.width, 100, `${timeLeft}`, timerStyle).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
+                timerSuffix = scene.add.text(30 + timerPrefix.width + timerTextUI.width, 100, "秒", timerStyle).setOrigin(0, 0.5).setDepth(300).setScrollFactor(0).setVisible(false);
 
                 const instructionText = scene.add.text(360, -640, "そーごを操作して、\nしゅんを倒せ！！", { fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '60px', fill: '#ffeb3b', fontStyle: 'bold', align: 'center', stroke: '#ff0000', strokeThickness: 10, shadow: { offsetX: 4, offsetY: 4, color: '#000', blur: 8, fill: true } }).setOrigin(0.5).setDepth(400);
 
@@ -601,16 +606,18 @@
                             scene.tweens.add({
                                 targets: [bossHpFill, heroHpFill], width: hpBarWidth, duration: 1200, ease: 'Power3.easeOut',
                                 onComplete: () => {
+                                    timerPrefix.setVisible(true);
                                     timerTextUI.setVisible(true);
+                                    timerSuffix.setVisible(true);
                                     
                                     timerEvent = scene.time.addEvent({
                                         delay: 1000, loop: true,
                                         callback: () => {
                                             if (!isShooterMode || isTimeOver) return;
                                             timeLeft--;
-                                            timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
+                                            timerTextUI.setText(`${timeLeft}`);
+                                            timerSuffix.x = timerTextUI.x + timerTextUI.width;
                                             
-                                            // ★ 0秒になった時の処理
                                             if (timeLeft <= 0) {
                                                 isTimeOver = true; 
                                                 bossEnemy.setData('timeOver', true);
@@ -625,18 +632,22 @@
 
                                                 bossUI.forEach(ui => ui.setVisible(false));
                                                 heroShooterUI.forEach(ui => ui.setVisible(false));
+                                                timerPrefix.setVisible(false);
+                                                timerSuffix.setVisible(false);
 
                                                 const camX = scene.cameras.main.scrollX;
                                                 const camY = scene.cameras.main.scrollY;
                                                 timerTextUI.setScrollFactor(1);
-                                                timerTextUI.x = camX + 30;
-                                                timerTextUI.y = camY + 100;
+                                                timerTextUI.x = camX + timerTextUI.x;
+                                                timerTextUI.y = camY + timerTextUI.y;
                                                 
-                                                scene.cameras.main.pan(camX + 310, camY + 100, 800, 'Power2');
+                                                const targetX = timerTextUI.x + timerTextUI.width / 2;
+                                                const targetY = timerTextUI.y;
+
+                                                scene.cameras.main.pan(targetX, targetY, 800, 'Power2');
                                                 scene.cameras.main.zoomTo(5, 800, 'Power2');
 
                                                 scene.time.delayedCall(2000, () => {
-                                                    // カメラを元に戻す
                                                     scene.cameras.main.pan(360, -640, 800, 'Power2');
                                                     scene.cameras.main.zoomTo(1, 800, 'Power2');
                                                     
@@ -685,8 +696,8 @@
                                                                             scene.time.delayedCall(1000, () => {
                                                                                 if (activeHero && activeHero.active) {
                                                                                     scene.add.text(activeHero.x, activeHero.y - 80, "(;_;)", { 
-                                                                                        fontSize: '40px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 
-                                                                                    }).setOrigin(0.5).setDepth(400);
+                                                                                        fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 
+                                                                                    }).setOrigin(0.5).setDepth(280);
                                                                                 }
                                                                             });
 
@@ -1188,7 +1199,7 @@
                                 bossHP -= 150; 
                                 if (bossHP < 0) bossHP = 0;
                                 if (bossUI && bossUI.length > 1 && bossUI[1]) {
-                                    const bMax = (typeof bossMaxHP !== 'undefined') ? bossMaxHP : 50000;
+                                    const bMax = (typeof bossMaxHP !== 'undefined') ? bossMaxHP : 45000;
                                     bossUI[1].width = 660 * (bossHP / bMax);
                                 }
                                 
