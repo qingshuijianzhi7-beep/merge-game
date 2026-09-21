@@ -610,7 +610,7 @@
                                             timeLeft--;
                                             timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                             
-                                            // ★ 0秒になった時の処理（「0」の数字に正確にフォーカス）
+                                            // ★ 0秒になった時の処理
                                             if (timeLeft <= 0) {
                                                 isTimeOver = true; 
                                                 bossEnemy.setData('timeOver', true);
@@ -626,14 +626,12 @@
                                                 bossUI.forEach(ui => ui.setVisible(false));
                                                 heroShooterUI.forEach(ui => ui.setVisible(false));
 
-                                                // テキストを維持したまま、カメラを「0」の数字の正確な位置（右側）に合わせる
                                                 const camX = scene.cameras.main.scrollX;
                                                 const camY = scene.cameras.main.scrollY;
                                                 timerTextUI.setScrollFactor(1);
                                                 timerTextUI.x = camX + 30;
                                                 timerTextUI.y = camY + 100;
                                                 
-                                                // 「ゲームオーバーまであと 」の幅を考慮し、「0」の位置（X: camX + 310）にパン
                                                 scene.cameras.main.pan(camX + 310, camY + 100, 800, 'Power2');
                                                 scene.cameras.main.zoomTo(5, 800, 'Power2');
 
@@ -683,6 +681,14 @@
                                                                             chargeAura.setBlendMode(Phaser.BlendModes.ADD);
 
                                                                             scene.tweens.add({ targets: chargeBall, alpha: 0.1, duration: 60, yoyo: true, repeat: -1 });
+
+                                                                            scene.time.delayedCall(1000, () => {
+                                                                                if (activeHero && activeHero.active) {
+                                                                                    scene.add.text(activeHero.x, activeHero.y - 80, "(;_;)", { 
+                                                                                        fontSize: '40px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 
+                                                                                    }).setOrigin(0.5).setDepth(400);
+                                                                                }
+                                                                            });
 
                                                                             scene.tweens.add({
                                                                                 targets: [chargeBall, chargeAura],
@@ -751,7 +757,7 @@
                                                                                                         try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
                                                                                                         scene.cameras.main.shake(3000, 0.1); 
                                                                                                         
-                                                                                                        scene.time.delayedCall(2500, () => {
+                                                                                                        scene.time.delayedCall(1000, () => {
                                                                                                             scene.add.text(360, -640, 'GAME OVER', { 
                                                                                                                 fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
                                                                                                             }).setOrigin(0.5).setDepth(500);
