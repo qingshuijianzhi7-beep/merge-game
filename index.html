@@ -610,7 +610,7 @@
                                             timeLeft--;
                                             timerTextUI.setText(`ゲームオーバーまであと ${timeLeft}秒`);
                                             
-                                            // ★ 0秒になった時の処理（「0」の数字位置にピンポイントで5倍ズーム）
+                                            // ★ 0秒になった時の処理（「0」の数字に正確にフォーカス）
                                             if (timeLeft <= 0) {
                                                 isTimeOver = true; 
                                                 bossEnemy.setData('timeOver', true);
@@ -626,15 +626,15 @@
                                                 bossUI.forEach(ui => ui.setVisible(false));
                                                 heroShooterUI.forEach(ui => ui.setVisible(false));
 
-                                                // テキストの文字はそのまま維持し、カメラを「0」の数字の位置に正確に合わせる
+                                                // テキストを維持したまま、カメラを「0」の数字の正確な位置（右側）に合わせる
                                                 const camX = scene.cameras.main.scrollX;
                                                 const camY = scene.cameras.main.scrollY;
                                                 timerTextUI.setScrollFactor(1);
                                                 timerTextUI.x = camX + 30;
                                                 timerTextUI.y = camY + 100;
                                                 
-                                                // 「ゲームオーバーまであと 」の幅（約165px）を足した「0」の座標にパン
-                                                scene.cameras.main.pan(camX + 195, camY + 100, 800, 'Power2');
+                                                // 「ゲームオーバーまであと 」の幅を考慮し、「0」の位置（X: camX + 310）にパン
+                                                scene.cameras.main.pan(camX + 310, camY + 100, 800, 'Power2');
                                                 scene.cameras.main.zoomTo(5, 800, 'Power2');
 
                                                 scene.time.delayedCall(2000, () => {
