@@ -749,7 +749,6 @@
                                                                                                     onComplete: () => {
                                                                                                         energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
                                                                                                         boomTimer.remove(); 
-                                                                                                        if (activeHero && activeHero.active) activeHero.destroy();
                                                                                                         
                                                                                                         try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
                                                                                                         scene.cameras.main.shake(3000, 0.1); 
@@ -1236,70 +1235,97 @@
                                     isShooterMode = false;
                                     if (timerEvent) timerEvent.remove();
                                     
+                                    if (activeHero && activeHero.body) {
+                                        activeHero.body.enable = false;
+                                        activeHero.body.setVelocity(0, 0);
+                                    }
+
                                     scene.tweens.killTweensOf(bossEnemy);
 
-                                    const deathText = scene.add.text(bossEnemy.x, bossEnemy.y - 200, "ちくしょおおおおおおおお！！！！", { 
-                                        fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 6 
-                                    }).setOrigin(0.5).setDepth(400);
+                                    bossUI.forEach(ui => ui.setVisible(false));
+                                    if (timerPrefix) timerPrefix.setVisible(false);
+                                    if (timerTextUI) timerTextUI.setVisible(false);
+                                    if (timerSuffix) timerSuffix.setVisible(false);
 
                                     scene.tweens.add({
-                                        targets: [bossEnemy, deathText],
-                                        y: '-=150',
-                                        duration: 1000,
-                                        ease: 'Power2',
+                                        targets: bossEnemy,
+                                        y: -1100, 
+                                        duration: 1500,
+                                        ease: 'Sine.easeInOut',
                                         onComplete: () => {
-                                            deathText.destroy();
-                                            try { scene.sound.play('explode', { volume: 3.0 }); } catch(e){}
-                                            scene.cameras.main.shake(1000, 0.05);
+                                            scene.time.delayedCall(1000, () => {
+                                                const deathText = scene.add.text(bossEnemy.x, bossEnemy.y - 150, "ちくしょおおおおおおおお！！！！", { 
+                                                    fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 6 
+                                                }).setOrigin(0.5).setDepth(400);
 
-                                            const exX = bossEnemy.x;
-                                            const exY = bossEnemy.y;
+                                                scene.time.delayedCall(2000, () => {
+                                                    deathText.destroy();
+                                                    
+                                                    scene.sound.stopAll();
+                                                    try { scene.sound.play('explode', { volume: 3.0 }); } catch(e){}
+                                                    scene.cameras.main.shake(1000, 0.05);
 
-                                            const cols = 4;
-                                            const rows = 4;
-                                            const bw = bossEnemy.displayWidth;
-                                            const bh = bossEnemy.displayHeight;
-                                            const texW = bossEnemy.width;
-                                            const texH = bossEnemy.height;
-                                            const texCW = texW / cols;
-                                            const texCH = texH / rows;
-                                            const scaleX = bossEnemy.scaleX;
-                                            const scaleY = bossEnemy.scaleY;
+                                                    const exX = bossEnemy.x;
+                                                    const exY = bossEnemy.y;
 
-                                            for (let r = 0; r < rows; r++) {
-                                                for (let c = 0; c < cols; c++) {
-                                                    const offsetX = (c - cols / 2 + 0.5) * (bw / cols);
-                                                    const offsetY = (r - rows / 2 + 0.5) * (bh / rows);
+                                                    const cols = 4;
+                                                    const rows = 4;
+                                                    const bw = bossEnemy.displayWidth;
+                                                    const bh = bossEnemy.displayHeight;
+                                                    const texW = bossEnemy.width;
+                                                    const texH = bossEnemy.height;
+                                                    const texCW = texW / cols;
+                                                    const texCH = texH / rows;
+                                                    const scaleX = bossEnemy.scaleX;
+                                                    const scaleY = bossEnemy.scaleY;
 
-                                                    const shard = scene.add.sprite(exX + offsetX, exY + offsetY, bossEnemy.texture.key).setDepth(260);
-                                                    shard.setScale(scaleX, scaleY);
-                                                    shard.setCrop(c * texCW, r * texCH, texCW, texCH);
-                                                    scene.physics.add.existing(shard);
+                                                    for (let r = 0; r < rows; r++) {
+                                                        for (let c = 0; c < cols; c++) {
+                                                            const offsetX = (c - cols / 2 + 0.5) * (bw / cols);
+                                                            const offsetY = (r - rows / 2 + 0.5) * (bh / rows);
 
-                                                    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-                                                    const speed = Phaser.Math.Between(300, 800);
-                                                    shard.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-                                                    shard.body.setAngularVelocity(Phaser.Math.Between(-300, 300));
+                                                            const shard = scene.add.sprite(exX + offsetX, exY + offsetY, bossEnemy.texture.key).setDepth(260);
+                                                            shard.setScale(scaleX, scaleY);
+                                                            shard.setCrop(c * texCW, r * texCH, texCW, texCH);
+                                                            scene.physics.add.existing(shard);
 
-                                                    scene.tweens.add({
-                                                        targets: shard,
-                                                        alpha: 0,
-                                                        angle: Phaser.Math.Between(360, 720),
-                                                        duration: Phaser.Math.Between(1000, 1500),
-                                                        onComplete: () => shard.destroy()
+                                                            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                                                            const speed = Phaser.Math.Between(300, 800);
+                                                            shard.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                                                            shard.body.setAngularVelocity(Phaser.Math.Between(-300, 300));
+
+                                                            scene.tweens.add({
+                                                                targets: shard,
+                                                                alpha: 0,
+                                                                angle: Phaser.Math.Between(360, 720),
+                                                                duration: Phaser.Math.Between(1000, 1500),
+                                                                onComplete: () => shard.destroy()
+                                                            });
+                                                        }
+                                                    }
+
+                                                    bossEnemy.destroy();
+
+                                                    scene.time.delayedCall(500, () => {
+                                                        scene.sound.stopAll();
                                                     });
-                                                }
-                                            }
 
-                                            bossEnemy.destroy();
+                                                    const smallEnemy = scene.add.sprite(exX, exY, 'enemy').setOrigin(0.5).setDepth(255);
+                                                    smallEnemy.setDisplaySize(80, 80);
 
-                                            const smallEnemy = scene.add.sprite(exX, exY, 'enemy').setOrigin(0.5).setDepth(255);
-                                            smallEnemy.setDisplaySize(80, 80);
+                                                    scene.time.delayedCall(1500, () => {
+                                                        const confuseText = scene.add.text(smallEnemy.x, smallEnemy.y - 80, "俺は今まで何を？？？", {
+                                                            fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
+                                                        }).setOrigin(0.5).setDepth(400);
 
-                                            scene.time.delayedCall(2000, () => {
-                                                scene.add.text(360, -640, 'YOU WIN!', { 
-                                                    fontSize: '80px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
-                                                }).setOrigin(0.5).setDepth(1000);
+                                                        scene.time.delayedCall(2500, () => {
+                                                            confuseText.destroy();
+                                                            scene.add.text(360, -640, 'YOU WIN!', { 
+                                                                fontSize: '80px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
+                                                            }).setOrigin(0.5).setDepth(1000);
+                                                        });
+                                                    });
+                                                });
                                             });
                                         }
                                     });
