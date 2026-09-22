@@ -89,18 +89,20 @@
         g.fillRect(0, 0, 3, 3); 
         g.generateTexture('star', 3, 3);
 
-        // 猫の走りアニメーションの定義
-        this.anims.create({
-            key: 'cat_run',
-            frames: [
-                { key: 'cat1' },
-                { key: 'cat2' },
-                { key: 'cat3' }
-            ],
-            frameRate: 15,
-            repeat: -1,
-            yoyo: true // 1→2→3→2→1と滑らかに往復させる
-        });
+        // 画像がロードできている場合のみアニメーションを作成する（エラー防止）
+        if (this.textures.exists('cat1') && this.textures.exists('cat2') && this.textures.exists('cat3')) {
+            this.anims.create({
+                key: 'cat_run',
+                frames: [
+                    { key: 'cat1' },
+                    { key: 'cat2' },
+                    { key: 'cat3' }
+                ],
+                frameRate: 15,
+                repeat: -1,
+                yoyo: true
+            });
+        }
 
         this.input.on('pointerdown', () => {
             if (this.sound.context && this.sound.context.state === 'suspended') {
@@ -650,14 +652,21 @@
 
                                                 bossUI.forEach(ui => ui.setVisible(false));
                                                 heroShooterUI.forEach(ui => ui.setVisible(false));
-                                                timerPrefix.setVisible(false);
-                                                timerSuffix.setVisible(false);
 
                                                 const camX = scene.cameras.main.scrollX;
                                                 const camY = scene.cameras.main.scrollY;
+                                                
+                                                timerPrefix.setScrollFactor(1);
+                                                timerPrefix.x = camX + timerPrefix.x;
+                                                timerPrefix.y = camY + timerPrefix.y;
+
                                                 timerTextUI.setScrollFactor(1);
                                                 timerTextUI.x = camX + timerTextUI.x;
                                                 timerTextUI.y = camY + timerTextUI.y;
+
+                                                timerSuffix.setScrollFactor(1);
+                                                timerSuffix.x = camX + timerSuffix.x;
+                                                timerSuffix.y = camY + timerSuffix.y;
                                                 
                                                 const targetX = timerTextUI.x + timerTextUI.width / 2;
                                                 const targetY = timerTextUI.y;
@@ -670,7 +679,9 @@
                                                     scene.cameras.main.zoomTo(1, 800, 'Power2');
                                                     
                                                     scene.time.delayedCall(800, () => {
+                                                        timerPrefix.setVisible(false);
                                                         timerTextUI.setVisible(false);
+                                                        timerSuffix.setVisible(false);
 
                                                         scene.tweens.add({
                                                             targets: activeHero,
@@ -781,7 +792,6 @@
                                                                                                         boomTimer.remove(); 
                                                                                                         
                                                                                                         if (activeHero && activeHero.active) activeHero.destroy();
-                                                                                                        if (bossEnemy && bossEnemy.active) bossEnemy.destroy();
                                                                                                         
                                                                                                         try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
                                                                                                         scene.cameras.main.shake(3000, 0.1); 
@@ -1249,61 +1259,81 @@
     function fireCatStampede(scene, x, y, onComplete) {
         if (isTimeOver) return;
 
-        const numCats = 40; 
+        let catCount = 0;
+        const maxCats = 10; 
         const jawY = y + 150; 
 
-        for (let i = 0; i < numCats; i++) {
-            // enemy2の代わりにcat1で生成し、アニメーションを再生させる
-            const cat = scene.add.sprite(x, y, 'cat1').setOrigin(0.5).setDepth(255);
-            cat.setDisplaySize(50, 50); 
-            cat.play('cat_run');
-            scene.physics.add.existing(cat);
+        const catTimer = scene.time.addEvent({
+            delay: 700, 
+            loop: true,
+            callback: () => {
+                if (isTimeOver) {
+                    catTimer.remove();
+                    return;
+                }
 
-            const targetX = Phaser.Math.Between(10, 710);
-            const targetY = jawY + Phaser.Math.Between(-30, 30);
+                const hasCat = scene.textures.exists('cat1');
+                const catKey = hasCat ? 'cat1' : 'enemy2';
+                
+                const cat = scene.add.sprite(x, y, catKey).setOrigin(0.5).setDepth(255);
+                cat.setDisplaySize(140, 140); 
+                
+                if (hasCat && scene.anims.exists('cat_run')) {
+                    cat.play('cat_run');
+                }
+                scene.physics.add.existing(cat);
 
-            scene.tweens.add({
-                targets: cat,
-                x: targetX,
-                y: targetY,
-                duration: Phaser.Math.Between(400, 800),
-                ease: 'Power2',
-                onComplete: () => {
-                    if (isTimeOver) {
-                        cat.destroy();
-                        return;
-                    }
-                    cat.body.setVelocityY(Phaser.Math.Between(700, 1100));
-                    
-                    const checkEvent = scene.time.addEvent({
-                        delay: 20, loop: true,
-                        callback: () => {
-                            if (!cat || !cat.active || isTimeOver) { 
-                                if (isTimeOver && cat && cat.active) cat.destroy();
-                                checkEvent.remove(); 
-                                return; 
-                            }
-                            
-                            if (cat.y > 100) { 
-                                cat.destroy();
-                                checkEvent.remove();
-                            } else if (activeHero && activeHero.active) {
-                                const dist = Phaser.Math.Distance.Between(cat.x, cat.y, activeHero.x, activeHero.y);
-                                if (dist < 35) { 
+                const targetX = Phaser.Math.Between(50, 670);
+                const targetY = jawY + Phaser.Math.Between(-20, 20);
+
+                scene.tweens.add({
+                    targets: cat,
+                    x: targetX,
+                    y: targetY,
+                    duration: 400,
+                    ease: 'Power2',
+                    onComplete: () => {
+                        if (isTimeOver) {
+                            cat.destroy();
+                            return;
+                        }
+                        
+                        cat.body.setVelocityY(800);
+                        
+                        const checkEvent = scene.time.addEvent({
+                            delay: 20, loop: true,
+                            callback: () => {
+                                if (!cat || !cat.active || isTimeOver) { 
+                                    if (isTimeOver && cat && cat.active) cat.destroy();
+                                    checkEvent.remove(); 
+                                    return; 
+                                }
+                                
+                                if (cat.y > 100) { 
                                     cat.destroy();
                                     checkEvent.remove();
-                                    try { scene.sound.play('hero_hit'); } catch(e){}
-                                    takeHeroShooterDamage(scene, 30); 
+                                } else if (activeHero && activeHero.active) {
+                                    const dist = Phaser.Math.Distance.Between(cat.x, cat.y, activeHero.x, activeHero.y);
+                                    if (dist < 60) { 
+                                        cat.destroy();
+                                        checkEvent.remove();
+                                        try { scene.sound.play('hero_hit'); } catch(e){}
+                                        takeHeroShooterDamage(scene, 150); 
+                                    }
                                 }
                             }
-                        }
+                        });
+                    }
+                });
+
+                catCount++;
+                if (catCount >= maxCats) {
+                    catTimer.remove();
+                    scene.time.delayedCall(2000, () => {
+                        if (onComplete) onComplete();
                     });
                 }
-            });
-        }
-
-        scene.time.delayedCall(3500, () => {
-            if (onComplete) onComplete();
+            }
         });
     }
 
