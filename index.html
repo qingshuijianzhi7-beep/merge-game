@@ -803,13 +803,6 @@
                                                                                                     }
                                                                                                 });
                                                                                             });
-                                                                                        }
-                                                                                    });
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    });
-                                                                });
                                                             }
                                                         });
                                                     });
@@ -1243,38 +1236,71 @@
                                     isShooterMode = false;
                                     if (timerEvent) timerEvent.remove();
                                     
-                                    try { scene.sound.play('explode', { volume: 3.0 }); } catch(e){}
-                                    scene.cameras.main.shake(1000, 0.05);
+                                    scene.tweens.killTweensOf(bossEnemy);
 
-                                    const exX = bossEnemy.x;
-                                    const exY = bossEnemy.y;
+                                    const deathText = scene.add.text(bossEnemy.x, bossEnemy.y - 200, "ちくしょおおおおおおおお！！！！", { 
+                                        fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 6 
+                                    }).setOrigin(0.5).setDepth(400);
 
-                                    for (let i = 0; i < 40; i++) {
-                                        const size = Phaser.Math.Between(15, 30);
-                                        const color = Phaser.Utils.Array.GetRandom([0xffffff, 0xff0000, 0x880000, 0x555555]);
-                                        const fragment = scene.add.rectangle(exX, exY, size, size, color).setDepth(260);
-                                        scene.physics.add.existing(fragment);
-                                        const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-                                        const speed = Phaser.Math.Between(400, 1000);
-                                        fragment.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-                                        scene.tweens.add({
-                                            targets: fragment,
-                                            alpha: 0,
-                                            angle: Phaser.Math.Between(360, 720),
-                                            duration: Phaser.Math.Between(800, 1500),
-                                            onComplete: () => fragment.destroy()
-                                        });
-                                    }
+                                    scene.tweens.add({
+                                        targets: [bossEnemy, deathText],
+                                        y: '-=150',
+                                        duration: 1000,
+                                        ease: 'Power2',
+                                        onComplete: () => {
+                                            deathText.destroy();
+                                            try { scene.sound.play('explode', { volume: 3.0 }); } catch(e){}
+                                            scene.cameras.main.shake(1000, 0.05);
 
-                                    bossEnemy.destroy();
+                                            const exX = bossEnemy.x;
+                                            const exY = bossEnemy.y;
 
-                                    const smallEnemy = scene.add.sprite(exX, exY, 'enemy').setOrigin(0.5).setDepth(255);
-                                    smallEnemy.setDisplaySize(80, 80);
+                                            const cols = 3;
+                                            const rows = 3;
+                                            const bw = bossEnemy.displayWidth;
+                                            const bh = bossEnemy.displayHeight;
+                                            const cw = bw / cols;
+                                            const ch = bh / rows;
+                                            const texW = bossEnemy.width;
+                                            const texH = bossEnemy.height;
+                                            const texCW = texW / cols;
+                                            const texCH = texH / rows;
 
-                                    scene.time.delayedCall(2000, () => {
-                                        scene.add.text(360, -640, 'YOU WIN!', { 
-                                            fontSize: '80px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
-                                        }).setOrigin(0.5).setDepth(1000);
+                                            for (let r = 0; r < rows; r++) {
+                                                for (let c = 0; c < cols; c++) {
+                                                    const offsetX = (c - cols / 2 + 0.5) * cw;
+                                                    const offsetY = (r - rows / 2 + 0.5) * ch;
+
+                                                    const shard = scene.add.sprite(exX + offsetX, exY + offsetY, bossEnemy.texture.key).setDepth(260);
+                                                    shard.setDisplaySize(bw, bh);
+                                                    shard.setCrop(c * texCW, r * texCH, texCW, texCH);
+                                                    scene.physics.add.existing(shard);
+
+                                                    const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                                                    const speed = Phaser.Math.Between(200, 600);
+                                                    shard.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                                                    shard.body.setAngularVelocity(Phaser.Math.Between(-300, 300));
+
+                                                    scene.tweens.add({
+                                                        targets: shard,
+                                                        alpha: 0,
+                                                        duration: Phaser.Math.Between(1000, 1500),
+                                                        onComplete: () => shard.destroy()
+                                                    });
+                                                }
+                                            }
+
+                                            bossEnemy.destroy();
+
+                                            const smallEnemy = scene.add.sprite(exX, exY, 'enemy').setOrigin(0.5).setDepth(255);
+                                            smallEnemy.setDisplaySize(80, 80);
+
+                                            scene.time.delayedCall(2000, () => {
+                                                scene.add.text(360, -640, 'YOU WIN!', { 
+                                                    fontSize: '80px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
+                                                }).setOrigin(0.5).setDepth(1000);
+                                            });
+                                        }
                                     });
                                 }
                             }
@@ -1290,7 +1316,7 @@
 
         let catCount = 0;
         const maxCats = 20; 
-        const jawY = y + 150; 
+        const spawnY = y; 
 
         const catTimer = scene.time.addEvent({
             delay: 700, 
@@ -1313,7 +1339,7 @@
                 scene.physics.add.existing(cat);
 
                 const targetX = Phaser.Math.Between(50, 670);
-                const targetY = jawY + Phaser.Math.Between(-20, 20);
+                const targetY = spawnY + Phaser.Math.Between(-20, 20);
 
                 scene.tweens.add({
                     targets: cat,
@@ -1328,7 +1354,7 @@
                         }
                         
                         try { scene.sound.play('meow'); } catch(e){}
-                        cat.body.setVelocityY(800);
+                        cat.body.setVelocityY(250);
                         
                         const checkEvent = scene.time.addEvent({
                             delay: 20, loop: true,
