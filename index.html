@@ -69,6 +69,11 @@
         this.load.image('cat2', 'cat2.png');
         this.load.image('cat3', 'cat3.png');
         
+        // ★新規追加の画像と音声
+        this.load.image('birthday_img', 'birthday_img.png');
+        this.load.audio('musicbox', 'musicbox.mp3');
+        this.load.audio('birthday', 'birthday.mp3');
+        
         this.load.audio('shoot', 'shoot.mp3');
         this.load.audio('hit', 'hit.mp3');
         this.load.audio('crowned', 'crowned.mp3');
@@ -1237,576 +1242,28 @@
                                 
                                 if (bossHP <= 0 && isShooterMode) {
                                     isShooterMode = false;
+                                    isTimeOver = true; 
                                     if (timerEvent) timerEvent.remove();
                                     
-                                    scene.tweens.killTweensOf(bossEnemy);
-
-                                    bossUI.forEach(ui => ui.setVisible(false));
-                                    if (timerPrefix) timerPrefix.setVisible(false);
-                                    if (timerTextUI) timerTextUI.setVisible(false);
-                                    if (timerSuffix) timerSuffix.setVisible(false);
-
-                                    scene.tweens.add({
-                                        targets: bossEnemy,
-                                        y: -1100, 
-                                        duration: 1500,
-                                        ease: 'Sine.easeInOut',
-                                        onComplete: () => {
-                                            scene.time.delayedCall(500, () => {
-                                                const deathText = scene.add.text(bossEnemy.x, bossEnemy.y - 150, "ちくしょおおおおおおおお！！！！", { 
-                                                    fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 6 
-                                                }).setOrigin(0.5).setDepth(400);
-
-                                                scene.time.delayedCall(2000, () => {
-                                                    deathText.setText("僕は車の免許だってもってるのにいいいい！！");
-                                                    deathText.setFontSize('30px');
-
-                                                    scene.time.delayedCall(2000, () => {
-                                                        deathText.destroy();
-                                                        
-                                                        try { scene.sound.play('explode', { volume: 3.0 }); } catch(e){}
-                                                        scene.cameras.main.shake(1000, 0.05);
-
-                                                        const exX = bossEnemy.x;
-                                                        const exY = bossEnemy.y;
-
-                                                        const cols = 4;
-                                                        const rows = 4;
-                                                        const bw = bossEnemy.displayWidth;
-                                                        const bh = bossEnemy.displayHeight;
-                                                        const texW = bossEnemy.width;
-                                                        const texH = bossEnemy.height;
-                                                        const texCW = texW / cols;
-                                                        const texCH = texH / rows;
-                                                        const scaleX = bossEnemy.scaleX;
-                                                        const scaleY = bossEnemy.scaleY;
-
-                                                        for (let r = 0; r < rows; r++) {
-                                                            for (let c = 0; c < cols; c++) {
-                                                                const offsetX = (c - cols / 2 + 0.5) * (bw / cols);
-                                                                const offsetY = (r - rows / 2 + 0.5) * (bh / rows);
-
-                                                                const shard = scene.add.sprite(exX + offsetX, exY + offsetY, bossEnemy.texture.key).setDepth(260);
-                                                                shard.setScale(scaleX, scaleY);
-                                                                shard.setCrop(c * texCW, r * texCH, texCW, texCH);
-                                                                scene.physics.add.existing(shard);
-
-                                                                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-                                                                const speed = Phaser.Math.Between(300, 800);
-                                                                shard.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-                                                                shard.body.setAngularVelocity(Phaser.Math.Between(-300, 300));
-
-                                                                scene.tweens.add({
-                                                                    targets: shard,
-                                                                    alpha: 0,
-                                                                    angle: Phaser.Math.Between(360, 720),
-                                                                    duration: Phaser.Math.Between(1000, 1500),
-                                                                    onComplete: () => shard.destroy()
-                                                                });
-                                                            }
-                                                        }
-
-                                                        bossEnemy.destroy();
-
-                                                        scene.time.delayedCall(500, () => {
-                                                            scene.sound.stopAll();
-                                                        });
-
-                                                        const smallEnemy = scene.add.sprite(exX, exY, 'enemy').setOrigin(0.5).setDepth(255);
-                                                        smallEnemy.setDisplaySize(80, 80);
-
-                                                        scene.time.delayedCall(1500, () => {
-                                                            const confuseText = scene.add.text(smallEnemy.x, smallEnemy.y - 80, "俺は今まで何を？？？", {
-                                                                fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-                                                            }).setOrigin(0.5).setDepth(400);
-
-                                                            scene.time.delayedCall(2500, () => {
-                                                                confuseText.destroy();
-                                                                
-                                                                // ★追加演出：ヒーローとエネミーの会話＆合流
-                                                                const heroDialog1 = scene.add.text(activeHero.x, activeHero.y - 80, "大丈夫？", {
-                                                                    fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-                                                                }).setOrigin(0.5).setDepth(400);
-
-                                                                scene.time.delayedCall(2000, () => {
-                                                                    heroDialog1.destroy();
-                                                                    
-                                                                    const enemyDialog1 = scene.add.text(smallEnemy.x, smallEnemy.y - 80, "うん、いろいろ迷惑かけてごめんなさい", {
-                                                                        fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-                                                                    }).setOrigin(0.5).setDepth(400);
-
-                                                                    scene.time.delayedCall(3000, () => {
-                                                                        enemyDialog1.destroy();
-                                                                        
-                                                                        scene.tweens.add({
-                                                                            targets: activeHero,
-                                                                            x: smallEnemy.x - 80,
-                                                                            y: smallEnemy.y,
-                                                                            duration: 1500,
-                                                                            ease: 'Power2',
-                                                                            onComplete: () => {
-                                                                                const heroDialog2 = scene.add.text(activeHero.x, activeHero.y - 80, "よかった。。。ほんとうに", {
-                                                                                    fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-                                                                                }).setOrigin(0.5).setDepth(400);
-
-                                                                                scene.time.delayedCall(2500, () => {
-                                                                                    heroDialog2.destroy();
-                                                                                    
-                                                                                    scene.tweens.add({
-                                                                                        targets: activeHero,
-                                                                                        x: smallEnemy.x,
-                                                                                        y: smallEnemy.y,
-                                                                                        duration: 1500,
-                                                                                        ease: 'Power2',
-                                                                                        onComplete: () => {
-                                                                                            scene.time.delayedCall(500, () => {
-                                                                                                scene.add.text(360, -640, 'YOU WIN!', { 
-                                                                                                    fontSize: '80px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
-                                                                                                }).setOrigin(0.5).setDepth(1000);
-                                                                                            });
-                                                                                        }
-                                                                                    });
-                                                                                });
-                                                                            }
-                                                                        });
-                                                                    });
-                                                                });
-                                                            });
-                                                        });
-                                                    });
-                                                });
-                                            });
-                                        }
-                                    });
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        });
-    }
-
-    function startBossAttack(scene) {
-        if (isTimeOver) return;
-        executeTeleportAttack(scene, 0);
-    }
-
-    function executeTeleportAttack(scene, count) {
-        if (!bossEnemy || !bossEnemy.active || !isShooterMode || isTimeOver) return;
-
-        const baseW = 500;
-        const baseH = 500;
-
-        if (count === 4) {
-            try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e){}
-            scene.tweens.add({
-                targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn', 
-                onComplete: () => {
-                    if (isTimeOver) return; 
-                    bossEnemy.x = 360; bossEnemy.y = -900; 
-                    scene.time.delayedCall(200, () => {
-                        if (isTimeOver) return;
-                        try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e){}
-                        scene.tweens.add({
-                            targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut', 
-                            onComplete: () => {
-                                if (isTimeOver) return;
-                                if (bossAttackCycle === 0) {
-                                    scene.time.delayedCall(500, () => {
-                                        if (isTimeOver) return;
-                                        fireMissile(scene, bossEnemy.x, bossEnemy.y, () => {
-                                            if (isTimeOver) return;
-                                            bossAttackCycle = 1; 
-                                            scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
-                                        });
-                                    });
-                                } else if (bossAttackCycle === 1) {
-                                    executeBeamSequence(scene, 0, () => {
-                                        if (isTimeOver) return;
-                                        bossAttackCycle = 2; 
-                                        scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
-                                    });
-                                } else {
-                                    scene.time.delayedCall(500, () => {
-                                        if (isTimeOver) return;
-                                        fireCatStampede(scene, bossEnemy.x, bossEnemy.y, () => {
-                                            if (isTimeOver) return;
-                                            bossAttackCycle = 0; 
-                                            scene.time.delayedCall(1000, () => executeTeleportAttack(scene, 0));
-                                        });
-                                    });
-                                }
-                            }
-                        });
-                    });
-                }
-            });
-            return;
-        }
-
-        try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e){}
-        scene.tweens.add({
-            targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn', 
-            onComplete: () => {
-                if (isTimeOver) return;
-                bossEnemy.x = Phaser.Math.Between(150, 570);
-                bossEnemy.y = Phaser.Math.Between(-1200, -450); 
-                scene.time.delayedCall(200, () => { 
-                    if (isTimeOver) return;
-                    try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e){}
-                    scene.tweens.add({
-                        targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut', 
-                        onComplete: () => {
-                            if (isTimeOver) return;
-                            fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
-                            executeTeleportAttack(scene, count + 1);
-                        }
-                    });
-                });
-            }
-        });
-    }
-
-    function executeBeamSequence(scene, step, onComplete) {
-        if (!bossEnemy || !bossEnemy.active || !isShooterMode || isTimeOver) return;
-
-        if (step === 0) {
-            chargeAndFireBeam(scene, () => {
-                if (isTimeOver) return;
-                scene.time.delayedCall(1000, () => executeBeamSequence(scene, 1, onComplete));
-            });
-        } else {
-            const targetX = (step === 1) ? 150 : 570;
-            const targetY = -900;
-            
-            try { scene.sound.play('warp_out', { volume: 3.0 }); } catch(e){}
-            const baseW = 500, baseH = 500;
-            scene.tweens.add({
-                targets: bossEnemy, displayWidth: 0, displayHeight: baseH * 1.5, alpha: 0, duration: 300, ease: 'Expo.easeIn',
-                onComplete: () => {
-                    if (isTimeOver) return;
-                    bossEnemy.x = targetX; bossEnemy.y = targetY;
-                    scene.time.delayedCall(200, () => {
-                        if (isTimeOver) return;
-                        try { scene.sound.play('warp_in', { volume: 3.0 }); } catch(e){}
-                        scene.tweens.add({
-                            targets: bossEnemy, displayWidth: baseW, displayHeight: baseH, alpha: 1, duration: 300, ease: 'Expo.easeOut',
-                            onComplete: () => {
-                                if (isTimeOver) return;
-                                fireCircleBullets(scene, bossEnemy.x, bossEnemy.y);
-                                chargeAndFireBeam(scene, () => {
-                                    if (isTimeOver) return;
-                                    if (step === 1) {
-                                        scene.time.delayedCall(1000, () => executeBeamSequence(scene, 2, onComplete));
-                                    } else {
-                                        if (onComplete) onComplete();
+                                    if (activeHero && activeHero.body) {
+                                        activeHero.body.setVelocity(0, 0);
+                                        activeHero.body.moves = false; 
                                     }
-                                });
-                            }
-                        });
-                    });
-                }
-            });
-        }
-    }
 
-    function chargeAndFireBeam(scene, onComplete) {
-        if (isTimeOver) return;
-        const chargeBall = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 10, 0xffffff).setDepth(260);
-        chargeBall.setBlendMode(Phaser.BlendModes.ADD); 
-        
-        const chargeAura = scene.add.circle(bossEnemy.x, bossEnemy.y + 100, 20, 0x00ffff, 0.5).setDepth(259);
-        chargeAura.setBlendMode(Phaser.BlendModes.ADD);
-
-        scene.tweens.add({
-            targets: [chargeBall, chargeAura], 
-            radius: 120, 
-            duration: 1500, 
-            ease: 'Cubic.easeInOut',
-            onStart: () => { try { scene.sound.play('roar'); } catch(e){} }, 
-            onComplete: () => {
-                chargeBall.destroy();
-                chargeAura.destroy();
-                if (isTimeOver) return;
-                fireBeam(scene, bossEnemy.x, bossEnemy.y + 100, onComplete);
-            }
-        });
-    }
-
-    function fireBeam(scene, x, y, onComplete) {
-        if (isTimeOver) return;
-        try { scene.sound.play('launch', { volume: 3.0 }); } catch(e){}
-        
-        const outerBeam = scene.add.rectangle(x, y, 220, 0, 0x00ffff, 0.4).setOrigin(0.5, 0).setDepth(250);
-        outerBeam.setBlendMode(Phaser.BlendModes.ADD); 
-        scene.physics.add.existing(outerBeam);
-
-        const midBeam = scene.add.rectangle(x, y, 140, 0, 0x88ffff, 0.7).setOrigin(0.5, 0).setDepth(251);
-        midBeam.setBlendMode(Phaser.BlendModes.ADD);
-
-        const coreBeam = scene.add.rectangle(x, y, 60, 0, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(252);
-        coreBeam.setBlendMode(Phaser.BlendModes.ADD);
-
-        const energyLines = [];
-        for (let i = 0; i < 15; i++) {
-            const lineX = x + Phaser.Math.Between(-40, 40);
-            const lineW = Phaser.Math.Between(1, 4); 
-            const lineH = Phaser.Math.Between(100, 300);
-            const line = scene.add.rectangle(lineX, y, lineW, lineH, 0xffffff, 0.9).setOrigin(0.5, 0).setDepth(253);
-            line.setBlendMode(Phaser.BlendModes.ADD);
-            
-            const lineTween = scene.tweens.add({
-                targets: line,
-                y: y + 2500, 
-                duration: Phaser.Math.Between(150, 350),
-                repeat: -1,
-                delay: Phaser.Math.Between(0, 200)
-            });
-            energyLines.push({ rect: line, tween: lineTween });
-        }
-
-        scene.tweens.add({
-            targets: [outerBeam, midBeam, coreBeam], 
-            height: 2500, 
-            duration: 150, 
-            ease: 'Power2',
-            onComplete: () => {
-                if (isTimeOver) {
-                    outerBeam.destroy(); midBeam.destroy(); coreBeam.destroy();
-                    energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
-                    return;
-                }
-                scene.cameras.main.shake(800, 0.03);
-
-                const checkHit = scene.time.addEvent({
-                    delay: 20, loop: true,
-                    callback: () => {
-                        if (isTimeOver) { checkHit.remove(); return; }
-                        if (activeHero && activeHero.active && isShooterMode) {
-                            if (Math.abs(activeHero.x - outerBeam.x) < 110) {
-                                takeHeroShooterDamage(scene, 15); 
-                            }
-                        }
-                    }
-                });
-
-                scene.time.delayedCall(1000, () => {
-                    checkHit.remove();
-                    
-                    energyLines.forEach(item => {
-                        item.tween.remove();
-                        item.rect.destroy();
-                    });
-
-                    scene.tweens.add({
-                        targets: [outerBeam, midBeam, coreBeam], 
-                        width: 0, 
-                        alpha: 0, 
-                        duration: 300,
-                        onComplete: () => {
-                            outerBeam.destroy();
-                            midBeam.destroy();
-                            coreBeam.destroy();
-                            if (!isTimeOver && onComplete) onComplete();
-                        }
-                    });
-                });
-            }
-        });
-    }
-
-    function fireMissile(scene, x, y, onComplete) {
-        if (isTimeOver) return; 
-        try { scene.sound.play('launch', { volume: 2.0 }); } catch(e){}
-        
-        const missile = scene.add.sprite(x, y, 'missile').setOrigin(0.5).setDepth(255);
-        missile.setDisplaySize(90, 150); 
-        scene.physics.add.existing(missile);
-        
-        let speed = 550; 
-        let currentAngle = Math.PI / 2; 
-        let trackingTimer = 0; 
-
-        const trackEvent = scene.time.addEvent({
-            delay: 20, loop: true,
-            callback: () => {
-                if (!missile || !missile.active || !isShooterMode || isTimeOver) { 
-                    if (isTimeOver && missile && missile.active) missile.destroy();
-                    trackEvent.remove(); 
-                    return; 
-                }
-
-                trackingTimer += 20; 
-
-                if (trackingTimer <= 2000 && activeHero && activeHero.active) {
-                    const targetAngle = Phaser.Math.Angle.Between(missile.x, missile.y, activeHero.x, activeHero.y);
-                    let diff = Phaser.Math.Angle.Wrap(targetAngle - currentAngle);
-                    currentAngle += diff * 0.04; 
-                }
-
-                missile.rotation = currentAngle - Math.PI / 2; 
-                missile.body.setVelocity(Math.cos(currentAngle) * speed, Math.sin(currentAngle) * speed);
-
-                if (activeHero && activeHero.active) {
-                    const dist = Phaser.Math.Distance.Between(missile.x, missile.y, activeHero.x, activeHero.y);
-                    if (dist < 40) {
-                        explodeMissile(scene, missile, trackEvent, onComplete);
-                        takeHeroShooterDamage(scene, 200); 
-                        return;
-                    }
-                }
-
-                if (missile.y > 0 || missile.y < -1350 || missile.x < 0 || missile.x > 720) {
-                    explodeMissile(scene, missile, trackEvent, onComplete);
-                }
-            }
-        });
-    }
-
-    function explodeMissile(scene, missile, trackEvent, onComplete) {
-        if (isTimeOver || !missile || !missile.active) return;
-        trackEvent.remove(); 
-        const exX = missile.x;
-        const exY = missile.y;
-        missile.destroy(); 
-
-        try { scene.sound.play('explode', { volume: 2.0 }); } catch(e){}
-        
-        const flash = scene.add.circle(exX, exY, 120, 0xff8800).setDepth(260);
-        scene.tweens.add({
-            targets: flash, alpha: 0, scale: 2.5, duration: 300, ease: 'Power2',
-            onComplete: () => flash.destroy()
-        });
-
-        fireCircleBullets(scene, exX, exY);
-        if (onComplete) onComplete();
-    }
-
-    function fireCircleBullets(scene, x, y) {
-        if (isTimeOver) return; 
-        try { scene.sound.play('shoot'); } catch(e){}
-        
-        const numBullets = 32; 
-        const speed = 400; 
-
-        for (let i = 0; i < numBullets; i++) {
-            const angle = (i * (360 / numBullets)) * (Math.PI / 180);
-            const bullet = scene.add.sprite(x, y, 'enemy2').setOrigin(0.5).setDepth(255);
-            bullet.setDisplaySize(40, 40); 
-            scene.physics.add.existing(bullet);
-            bullet.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-            
-            const checkEvent = scene.time.addEvent({
-                delay: 20, loop: true,
-                callback: () => {
-                    if (!bullet || !bullet.active || isTimeOver) { 
-                        if (isTimeOver && bullet && bullet.active) bullet.destroy();
-                        checkEvent.remove(); 
-                        return; 
-                    }
-                    
-                    if (bullet.y < -1380 || bullet.y > 100 || bullet.x < -100 || bullet.x > 820) {
-                        bullet.destroy();
-                        checkEvent.remove();
-                    } else if (activeHero && activeHero.active) {
-                        const dist = Phaser.Math.Distance.Between(bullet.x, bullet.y, activeHero.x, activeHero.y);
-                        if (dist < 35) { 
-                            bullet.destroy();
-                            checkEvent.remove();
-                            try { scene.sound.play('hero_hit'); } catch(e){}
-                            takeHeroShooterDamage(scene, 100); 
-                        }
-                    }
-                }
-            });
-        }
-    }
-
-    function takeHeroShooterDamage(scene, amount) {
-        if (isTimeOver) return; 
-        globalHP -= amount;
-        if (globalHP < 0) globalHP = 0;
-        
-        hpBarFill.width = 380 * (globalHP / MAX_HP);
-        hpText.setText(`${globalHP} / ${MAX_HP}`);
-
-        if (heroShooterUI.length > 0) {
-            heroShooterUI[1].width = 660 * (globalHP / 1000);
-            heroShooterUI[2].setText(`HP: ${globalHP} / 1000`);
-        }
-
-        if (activeHero) {
-            activeHero.setTint(0xff0000);
-            scene.time.delayedCall(100, () => {
-                if (activeHero && activeHero.active) activeHero.clearTint();
-            });
-        }
-
-        if (globalHP <= 0 && isShooterMode) {
-            isShooterMode = false;
-            if (timerEvent) timerEvent.remove();
-            scene.add.text(360, -640, 'GAME OVER', { 
-                fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
-            }).setOrigin(0.5).setDepth(1000);
-            if (activeHero) activeHero.destroy();
-        }
-    }
-
-    function startAutoShooting(scene, hero) {
-        scene.time.addEvent({
-            delay: 150, 
-            loop: true,
-            callback: () => {
-                if (!isShooterMode || !hero || !hero.active || isTimeOver) return; 
-                
-                const bullet = scene.add.sprite(hero.x, hero.y - 50, 'arrow').setOrigin(0.5).setDepth(255);
-                bullet.setDisplaySize(40, 100); 
-                scene.physics.add.existing(bullet);
-                bullet.body.setVelocityY(-2000); 
-                
-                try { scene.sound.play('shoot'); } catch(e){}
-                
-                const checkHitEvent = scene.time.addEvent({
-                    delay: 20, loop: true,
-                    callback: () => {
-                        if (!bullet || !bullet.active || isTimeOver) { 
-                            if (isTimeOver && bullet && bullet.active) bullet.destroy();
-                            checkHitEvent.remove(); 
-                            return; 
-                        }
-                        
-                        if (bullet.y < -1380) { 
-                            bullet.destroy();
-                            checkHitEvent.remove();
-                        } else if (bossEnemy && bossEnemy.active) {
-                            if (bullet.x > bossEnemy.x - 120 && bullet.x < bossEnemy.x + 90 && bullet.y < bossEnemy.y + 100 && bullet.y > bossEnemy.y - 120) {
-                                bullet.destroy();
-                                checkHitEvent.remove();
-                                try { scene.sound.play('hit'); } catch(e){}
-                                
-                                bossEnemy.setTint(0xff8888);
-                                scene.time.delayedCall(50, () => {
-                                    if (bossEnemy && bossEnemy.active) bossEnemy.clearTint();
-                                });
-
-                                bossHP -= 150; 
-                                if (bossHP < 0) bossHP = 0;
-                                if (bossUI && bossUI.length > 1 && bossUI[1]) {
-                                    const bMax = (typeof bossMaxHP !== 'undefined') ? bossMaxHP : 40500;
-                                    bossUI[1].width = 660 * (bossHP / bMax);
-                                }
-                                
-                                if (bossHP <= 0 && isShooterMode) {
-                                    isShooterMode = false;
-                                    if (timerEvent) timerEvent.remove();
-                                    
                                     scene.tweens.killTweensOf(bossEnemy);
 
                                     bossUI.forEach(ui => ui.setVisible(false));
                                     if (timerPrefix) timerPrefix.setVisible(false);
                                     if (timerTextUI) timerTextUI.setVisible(false);
                                     if (timerSuffix) timerSuffix.setVisible(false);
+
+                                    scene.tweens.add({
+                                        targets: activeHero,
+                                        x: 360,
+                                        y: -250, 
+                                        duration: 1500,
+                                        ease: 'Power2'
+                                    });
 
                                     scene.tweens.add({
                                         targets: bossEnemy,
@@ -1878,6 +1335,7 @@
                                                         smallEnemy.setDisplaySize(80, 80);
 
                                                         scene.time.delayedCall(1500, () => {
+                                                            // エネミーのセリフ（白）
                                                             const confuseText = scene.add.text(smallEnemy.x, smallEnemy.y - 80, "俺は今まで何を？？？", {
                                                                 fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                             }).setOrigin(0.5).setDepth(400);
@@ -1885,13 +1343,18 @@
                                                             scene.time.delayedCall(2500, () => {
                                                                 confuseText.destroy();
                                                                 
+                                                                // ★オルゴール再生
+                                                                try { scene.sound.play('musicbox', { volume: 1.0 }); } catch(e){}
+                                                                
+                                                                // ヒーローのセリフ（水色にして区別）
                                                                 const heroDialog1 = scene.add.text(activeHero.x, activeHero.y - 80, "大丈夫？", {
-                                                                    fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
+                                                                    fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                                 }).setOrigin(0.5).setDepth(400);
 
                                                                 scene.time.delayedCall(2000, () => {
                                                                     heroDialog1.destroy();
                                                                     
+                                                                    // エネミーのセリフ（白）
                                                                     const enemyDialog1 = scene.add.text(smallEnemy.x, smallEnemy.y - 80, "うん、いろいろ迷惑かけてごめんなさい", {
                                                                         fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                                     }).setOrigin(0.5).setDepth(400);
@@ -1899,6 +1362,7 @@
                                                                     scene.time.delayedCall(3000, () => {
                                                                         enemyDialog1.destroy();
                                                                         
+                                                                        // ヒーローがエネミーの隣へ移動
                                                                         scene.tweens.add({
                                                                             targets: activeHero,
                                                                             x: smallEnemy.x - 80,
@@ -1906,13 +1370,15 @@
                                                                             duration: 1500,
                                                                             ease: 'Power2',
                                                                             onComplete: () => {
+                                                                                // ヒーローのセリフ（水色）
                                                                                 const heroDialog2 = scene.add.text(activeHero.x, activeHero.y - 80, "よかった。。。ほんとうに", {
-                                                                                    fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
+                                                                                    fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                                                 }).setOrigin(0.5).setDepth(400);
 
                                                                                 scene.time.delayedCall(2500, () => {
                                                                                     heroDialog2.destroy();
                                                                                     
+                                                                                    // 画像が重なり合う
                                                                                     scene.tweens.add({
                                                                                         targets: activeHero,
                                                                                         x: smallEnemy.x,
@@ -1921,9 +1387,30 @@
                                                                                         ease: 'Power2',
                                                                                         onComplete: () => {
                                                                                             scene.time.delayedCall(500, () => {
-                                                                                                scene.add.text(360, -640, 'YOU WIN!', { 
-                                                                                                    fontSize: '80px', fill: '#ffff00', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
-                                                                                                }).setOrigin(0.5).setDepth(1000);
+                                                                                                // ★白い光に包まれる
+                                                                                                const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(1000);
+                                                                                                whiteOut.setAlpha(0);
+                                                                                                
+                                                                                                scene.tweens.add({
+                                                                                                    targets: whiteOut,
+                                                                                                    alpha: 1,
+                                                                                                    duration: 2000,
+                                                                                                    onComplete: () => {
+                                                                                                        // オルゴールを止めて、誕生日BGMを再生
+                                                                                                        scene.sound.stopAll();
+                                                                                                        try { scene.sound.play('birthday', { volume: 1.0 }); } catch(e){}
+                                                                                                        
+                                                                                                        // ★誕生日の画像を表示
+                                                                                                        const bdayImg = scene.add.sprite(360, -640, 'birthday_img').setDepth(1001);
+                                                                                                        bdayImg.on('textureerrored', function() { bdayImg.destroy(); }); // 画像未設定時エラー回避
+                                                                                                        
+                                                                                                        scene.time.delayedCall(1000, () => {
+                                                                                                            scene.add.text(360, -640, 'HAPPY BIRTHDAY!!', { 
+                                                                                                                fontSize: '60px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
+                                                                                                            }).setOrigin(0.5).setDepth(1002);
+                                                                                                        });
+                                                                                                    }
+                                                                                                });
                                                                                             });
                                                                                         }
                                                                                     });
