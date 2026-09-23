@@ -4,9 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Merge Shoot RPG</title>
-    
-    <script src="https://unpkg.com/vconsole@latest/dist/vconsole.min.js"></script>
-    <script>try{ var vConsole = new VConsole(); }catch(e){}</script>
 
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
@@ -140,7 +137,6 @@
             timerSuffix = null;
             timerEvent = null;
 
-            // ★ タイトルから戻った際の重複エラー防止
             if (!this.textures.exists('star')) {
                 const g = this.make.graphics({x: 0, y: 0, add: false});
                 g.fillStyle(0xffffff);
@@ -180,7 +176,8 @@
             enemyUnits = this.add.group();
 
             spawnAlliedUnit(this, 1, 'Hero', 3, 1, 1);
-            spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 1); 
+            // ★第1形態のHPをヒーロー（Lv1でダメージ25）の攻撃4発分（100）に変更
+            spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 100); 
 
             const uiY = 1150;
             this.add.text(70, uiY, 'LIFE', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
@@ -194,16 +191,6 @@
 
             this.input.on('drag', handleDrag, this);
             this.input.on('dragend', handleDragEnd, this);
-
-            const skipBtn = this.add.text(10, 10, '⏩ SKIP TO BOSS', { 
-                fontSize: '20px', fill: '#fff', backgroundColor: '#d32f2f', padding: { x: 10, y: 10 } 
-            }).setInteractive().setDepth(9999);
-
-            skipBtn.on('pointerdown', () => {
-                skipBtn.destroy();
-                this.time.timeScale = 20; 
-                if (!isTurnExecuting) executeTurn(this);
-            });
         },
         update: function() {}
     };
@@ -1126,32 +1113,89 @@
                         try { scene.sound.play('explode', { volume: 5.0 }); } catch(e){}
                         try { scene.sound.play('roar', { volume: 4.0 }); } catch(e){}
                         
-                        scene.cameras.main.shake(1500, 0.1); 
+                        // 画面揺れ（より激しく）
+                        scene.cameras.main.shake(1500, 0.15); 
 
-                        const flash = scene.add.rectangle(360, -640, 2000, 3000, 0xff8800).setDepth(2000);
-                        scene.tweens.add({ targets: flash, alpha: 0, duration: 800 });
+                        // 1. 強烈なフラッシュ（白から徐々に透過）
+                        const flash = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(2000).setBlendMode(Phaser.BlendModes.ADD);
+                        scene.tweens.add({ 
+                            targets: flash, 
+                            alpha: 0, 
+                            duration: 1000, 
+                            ease: 'Expo.easeOut' 
+                        });
 
-                        // ★ 火球
-                        for(let i=0; i<60; i++) {
-                            const bx = 360 + Phaser.Math.Between(-400, 400);
-                            const by = -640 + Phaser.Math.Between(-600, 600);
-                            const fireball = scene.add.circle(bx, by, Phaser.Math.Between(100, 250), Phaser.Utils.Array.GetRandom([0xff4400, 0xffaa00, 0xff0000, 0xffff00])).setDepth(2001);
-                            fireball.setBlendMode(Phaser.BlendModes.ADD);
+                        // 2. 衝撃波（広がるリング）
+                        for (let i = 0; i < 3; i++) {
+                            const shockwave = scene.add.circle(360, -640, 50).setStrokeStyle(20 - i * 5, 0xffaa00, 1).setDepth(2001).setBlendMode(Phaser.BlendModes.ADD);
                             scene.tweens.add({
-                                targets: fireball, scale: Phaser.Math.FloatBetween(2, 6), alpha: 0,
-                                duration: Phaser.Math.Between(800, 1500), ease: 'Power2',
+                                targets: shockwave, 
+                                radius: 1000 + i * 200, 
+                                alpha: 0, 
+                                duration: 600 + i * 200, 
+                                ease: 'Cubic.easeOut',
+                                onComplete: () => shockwave.destroy()
+                            });
+                        }
+
+                        // 3. 火球（色を混ぜてよりダイナミックに拡散）
+                        const colors = [0xffffff, 0xffff00, 0xffaa00, 0xff4400, 0xff0000];
+                        for(let i = 0; i < 80; i++) {
+                            const bx = 360 + Phaser.Math.Between(-300, 300);
+                            const by = -640 + Phaser.Math.Between(-400, 400);
+                            const size = Phaser.Math.Between(50, 250);
+                            const color = Phaser.Utils.Array.GetRandom(colors);
+                            
+                            const fireball = scene.add.circle(bx, by, size, color).setDepth(2002).setBlendMode(Phaser.BlendModes.ADD);
+                            
+                            scene.tweens.add({
+                                targets: fireball, 
+                                scale: Phaser.Math.FloatBetween(2, 8), 
+                                alpha: 0,
+                                x: bx + Phaser.Math.Between(-250, 250),
+                                y: by + Phaser.Math.Between(-350, 350),
+                                duration: Phaser.Math.Between(600, 1200), 
+                                ease: 'Circ.easeOut',
                                 onComplete: () => fireball.destroy()
                             });
                         }
 
-                        // ★ 黒煙
-                        for(let i=0; i<50; i++) {
-                            const sx = 360 + Phaser.Math.Between(-500, 500);
-                            const sy = -640 + Phaser.Math.Between(-700, 700);
-                            const smoke = scene.add.circle(sx, sy, Phaser.Math.Between(200, 400), 0x222222).setDepth(2002);
+                        // 4. 飛び散る火花（高速の破片を追加）
+                        for(let i = 0; i < 100; i++) {
+                            const sparkX = 360 + Phaser.Math.Between(-100, 100);
+                            const sparkY = -640 + Phaser.Math.Between(-100, 100);
+                            const spark = scene.add.rectangle(sparkX, sparkY, Phaser.Math.Between(4, 15), Phaser.Math.Between(4, 15), 0xffdd00).setDepth(2003).setBlendMode(Phaser.BlendModes.ADD);
+                            
+                            const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                            const speed = Phaser.Math.Between(1000, 2500);
+                            
                             scene.tweens.add({
-                                targets: smoke, scale: Phaser.Math.FloatBetween(2, 5), alpha: 0, y: sy - Phaser.Math.Between(300, 800),
-                                duration: Phaser.Math.Between(1000, 2000), ease: 'Sine.easeOut',
+                                targets: spark,
+                                x: sparkX + Math.cos(angle) * speed,
+                                y: sparkY + Math.sin(angle) * speed,
+                                alpha: 0,
+                                rotation: Phaser.Math.Between(-10, 10),
+                                scale: 0,
+                                duration: Phaser.Math.Between(500, 900),
+                                ease: 'Cubic.easeOut',
+                                onComplete: () => spark.destroy()
+                            });
+                        }
+
+                        // 5. 黒煙（重みをもたせてゆっくりと上へ）
+                        for(let i = 0; i < 60; i++) {
+                            const sx = 360 + Phaser.Math.Between(-400, 400);
+                            const sy = -640 + Phaser.Math.Between(-300, 500);
+                            const smoke = scene.add.circle(sx, sy, Phaser.Math.Between(150, 350), 0x111111).setDepth(2004);
+                            
+                            scene.tweens.add({
+                                targets: smoke, 
+                                scale: Phaser.Math.FloatBetween(3, 7), 
+                                alpha: { from: 0.8, to: 0 }, 
+                                x: sx + Phaser.Math.Between(-100, 100),
+                                y: sy - Phaser.Math.Between(400, 1000), // 上方向へ流れる
+                                duration: Phaser.Math.Between(1000, 2500), 
+                                ease: 'Sine.easeOut',
                                 onComplete: () => smoke.destroy()
                             });
                         }
