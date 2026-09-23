@@ -427,9 +427,10 @@
         });
     }
 
+    // ★修正ポイント：ボス撃破後・タイムオーバー時にドラッグ・ドロップ判定をシャットアウトする
     function handleDrag(pointer, gameObject, dragX, dragY) {
-        if (isShooterMode) {
-            if (isTimeOver) return;
+        if (isShooterMode || isTimeOver) { // isTimeOverを追加
+            if (isTimeOver) return; // 撃破後はドラッグを無効化
             if (gameObject.getData('isAllied')) {
                 gameObject.x = Phaser.Math.Clamp(dragX, 50, 670);
                 gameObject.y = Phaser.Math.Clamp(dragY, 100 + spaceYOffset, 1180 + spaceYOffset);
@@ -443,7 +444,7 @@
     }
 
     function handleDragEnd(pointer, gameObject) {
-        if (isShooterMode) return;
+        if (isShooterMode || isTimeOver) return; // ★追加：撃破後にパズルのマスに戻されるのを防ぐ
         gameObject.setDepth(0); gameObject.getData('text').setDepth(0);
         const scene = gameObject.scene;
         if (isTurnExecuting) { returnAllUnitToPosition(gameObject); return; }
@@ -876,7 +877,7 @@
         scene.tweens.add({
             targets: hero,
             x: 360,
-            y: -150, 
+            y: -250, 
             duration: 1500,
             ease: 'Power2'
         });
