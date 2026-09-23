@@ -54,7 +54,7 @@
     var isTimeOver = false;
 
     // ==========================================
-    // パズルと進行の処理
+    // リソース読み込み
     // ==========================================
     function preload() {
         this.load.image('hero', 'hero.png');
@@ -89,68 +89,128 @@
         this.load.audio('mass_explode', 'explode.mp3'); 
     }
 
-    function create() {
-        const g = this.make.graphics({x: 0, y: 0, add: false});
-        g.fillStyle(0xffffff);
-        g.fillRect(0, 0, 3, 3); 
-        g.generateTexture('star', 3, 3);
+    // ==========================================
+    // タイトル画面シーン
+    // ==========================================
+    const TitleScene = {
+        key: 'TitleScene',
+        preload: preload,
+        create: function() {
+            this.cameras.main.setBackgroundColor('#1e1e1e');
+            
+            // ★ タイトルテキスト
+            const titleText = this.add.text(360, 400, "しゅんの\n誕生日を祝え！", { 
+                fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '70px', 
+                fill: '#ffeb3b', fontStyle: 'bold', align: 'center', 
+                stroke: '#ff0000', strokeThickness: 10, lineSpacing: 20 
+            }).setOrigin(0.5);
 
-        if (this.textures.exists('cat1') && this.textures.exists('cat2') && this.textures.exists('cat3')) {
-            this.anims.create({
-                key: 'cat_run',
-                frames: [
-                    { key: 'cat1' },
-                    { key: 'cat2' },
-                    { key: 'cat3' }
-                ],
-                frameRate: 15,
-                repeat: -1,
-                yoyo: true
+            this.tweens.add({ targets: titleText, y: 380, duration: 1000, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+            // ★ スタートボタン
+            const startBtn = this.add.text(360, 800, "START", { 
+                fontFamily: '"Impact", "Arial Black", sans-serif', fontSize: '50px', 
+                fill: '#fff', backgroundColor: '#d32f2f', padding: { x: 40, y: 20 }, 
+                fontStyle: 'bold', stroke: '#000', strokeThickness: 6 
+            }).setOrigin(0.5).setInteractive();
+
+            this.tweens.add({ targets: startBtn, scaleX: 1.05, scaleY: 1.05, duration: 800, yoyo: true, repeat: -1 });
+
+            startBtn.on('pointerdown', () => {
+                this.scene.start('GameScene'); // ゲーム画面へ移行
             });
         }
+    };
 
-        this.input.on('pointerdown', () => {
-            if (this.sound.context && this.sound.context.state === 'suspended') {
-                this.sound.context.resume();
+    // ==========================================
+    // ゲーム本編シーン
+    // ==========================================
+    const GameScene = {
+        key: 'GameScene',
+        create: function() {
+            // ★ タイトルから戻ってきたときのために全ての変数をリセット
+            globalHP = 1000;
+            bossHP = 40500; // 体力はそのまま！
+            turn = 1;
+            isTurnExecuting = false;
+            isShooterMode = false;
+            isInvincible = false;
+            isTimeOver = false;
+            bossAttackCycle = 0;
+            spaceYOffset = 0;
+            darkBgOverlay = null;
+            bossEnemy = null;
+            activeHero = null;
+            bossUI = [];
+            heroShooterUI = [];
+            timerTextUI = null;
+            timerPrefix = null;
+            timerSuffix = null;
+            timerEvent = null;
+
+            const g = this.make.graphics({x: 0, y: 0, add: false});
+            g.fillStyle(0xffffff);
+            g.fillRect(0, 0, 3, 3); 
+            g.generateTexture('star', 3, 3);
+
+            if (this.textures.exists('cat1') && this.textures.exists('cat2') && this.textures.exists('cat3')) {
+                if (!this.anims.exists('cat_run')) {
+                    this.anims.create({
+                        key: 'cat_run',
+                        frames: [
+                            { key: 'cat1' },
+                            { key: 'cat2' },
+                            { key: 'cat3' }
+                        ],
+                        frameRate: 15,
+                        repeat: -1,
+                        yoyo: true
+                    });
+                }
             }
-        });
 
-        turnText = this.add.text(360, 40, `TURN: ${turn}`, { fontSize: '32px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+            this.input.on('pointerdown', () => {
+                if (this.sound.context && this.sound.context.state === 'suspended') {
+                    this.sound.context.resume();
+                }
+            });
 
-        setupGrid(this, { x: START_X, y: ENEMY_START_Y, color: 0x4a1a1a }, ENEMY_ROWS, COLS);
-        setupGrid(this, { x: START_X, y: ALLIED_START_Y, color: 0x3a3a3a }, ALLIED_ROWS, COLS);
+            turnText = this.add.text(360, 40, `TURN: ${turn}`, { fontSize: '32px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
 
-        alliedUnits = this.add.group();
-        enemyUnits = this.add.group();
+            setupGrid(this, { x: START_X, y: ENEMY_START_Y, color: 0x4a1a1a }, ENEMY_ROWS, COLS);
+            setupGrid(this, { x: START_X, y: ALLIED_START_Y, color: 0x3a3a3a }, ALLIED_ROWS, COLS);
 
-        spawnAlliedUnit(this, 1, 'Hero', 3, 1, 1);
-        spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 1); 
+            alliedUnits = this.add.group();
+            enemyUnits = this.add.group();
 
-        const uiY = 1150;
-        this.add.text(70, uiY, 'LIFE', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
-        this.add.rectangle(130, uiY, 380, 40, 0x555555).setOrigin(0, 0.5);
-        hpBarFill = this.add.rectangle(130, uiY, 380, 40, 0x00e676).setOrigin(0, 0.5);
-        hpText = this.add.text(320, uiY, `${globalHP} / ${MAX_HP}`, { fontSize: '22px', fill: '#000', fontStyle:'bold' }).setOrigin(0.5);
+            spawnAlliedUnit(this, 1, 'Hero', 3, 1, 1);
+            spawnEnemyUnit(this, 1, 'Enemy', 3, 0, 1); 
 
-        const attackBtn = this.add.circle(620, uiY, 60, 0xff3d00).setInteractive();
-        this.add.text(620, uiY, 'FIRE!', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
-        attackBtn.on('pointerdown', () => executeTurn(this));
+            const uiY = 1150;
+            this.add.text(70, uiY, 'LIFE', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+            this.add.rectangle(130, uiY, 380, 40, 0x555555).setOrigin(0, 0.5);
+            hpBarFill = this.add.rectangle(130, uiY, 380, 40, 0x00e676).setOrigin(0, 0.5);
+            hpText = this.add.text(320, uiY, `${globalHP} / ${MAX_HP}`, { fontSize: '22px', fill: '#000', fontStyle:'bold' }).setOrigin(0.5);
 
-        this.input.on('drag', handleDrag, this);
-        this.input.on('dragend', handleDragEnd, this);
+            const attackBtn = this.add.circle(620, uiY, 60, 0xff3d00).setInteractive();
+            this.add.text(620, uiY, 'FIRE!', { fontSize: '28px', fill: '#fff', fontStyle: 'bold' }).setOrigin(0.5);
+            attackBtn.on('pointerdown', () => executeTurn(this));
 
-        const skipBtn = this.add.text(10, 10, '⏩ SKIP TO BOSS', { 
-            fontSize: '20px', fill: '#fff', backgroundColor: '#d32f2f', padding: { x: 10, y: 10 } 
-        }).setInteractive().setDepth(9999);
+            this.input.on('drag', handleDrag, this);
+            this.input.on('dragend', handleDragEnd, this);
 
-        skipBtn.on('pointerdown', () => {
-            skipBtn.destroy();
-            this.time.timeScale = 20; 
-            if (!isTurnExecuting) executeTurn(this);
-        });
-    }
+            const skipBtn = this.add.text(10, 10, '⏩ SKIP TO BOSS', { 
+                fontSize: '20px', fill: '#fff', backgroundColor: '#d32f2f', padding: { x: 10, y: 10 } 
+            }).setInteractive().setDepth(9999);
 
-    function update() {}
+            skipBtn.on('pointerdown', () => {
+                skipBtn.destroy();
+                this.time.timeScale = 20; 
+                if (!isTurnExecuting) executeTurn(this);
+            });
+        },
+        update: function() {}
+    };
 
     function setupGrid(scene, config, rows, cols) {
         for (let r = 0; r < rows; r++) {
@@ -209,6 +269,9 @@
             });
             scene.time.delayedCall(500, () => {
                 scene.add.text(360, 640, 'GAME OVER', { fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 }).setOrigin(0.5).setDepth(100);
+                
+                // ★ タイトルへ戻る
+                scene.time.delayedCall(3000, () => { scene.sound.stopAll(); scene.scene.start('TitleScene'); });
             });
         }
     }
@@ -733,6 +796,9 @@
                                                                                                     scene.cameras.main.shake(3000, 0.1); 
                                                                                                     scene.time.delayedCall(1000, () => {
                                                                                                         scene.add.text(360, -640, 'GAME OVER', { fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 }).setOrigin(0.5).setDepth(500);
+                                                                                                        
+                                                                                                        // ★ タイトルへ戻る
+                                                                                                        scene.time.delayedCall(4000, () => { scene.sound.stopAll(); scene.scene.start('TitleScene'); });
                                                                                                     });
                                                                                                 }
                                                                                             });
@@ -789,6 +855,9 @@
                 fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
             }).setOrigin(0.5).setDepth(1000);
             if (activeHero) activeHero.destroy();
+            
+            // ★ タイトルへ戻る
+            scene.time.delayedCall(3000, () => { scene.sound.stopAll(); scene.scene.start('TitleScene'); });
         }
     }
 
@@ -947,7 +1016,6 @@
         scene.time.delayedCall(500, () => { scene.sound.stopAll(); });
 
         const smallEnemy = scene.add.sprite(exX, exY, 'enemy').setOrigin(0.5).setDepth(255);
-        // ★ エネミーのサイズをヒーローぐらい（140x140）に変更
         smallEnemy.setDisplaySize(140, 140);
 
         scene.time.delayedCall(1500, () => {
@@ -989,7 +1057,7 @@
                         scene.time.delayedCall(1000, () => {
                             scene.tweens.add({
                                 targets: hero,
-                                x: smallEnemy.x - 25, // ★完全に隠れずにちょっとエネミーが見える位置
+                                x: smallEnemy.x - 25, 
                                 duration: 1000,
                                 ease: 'Power2',
                                 onComplete: () => {
@@ -1000,7 +1068,6 @@
                                     scene.time.delayedCall(2500, () => {
                                         heroDialog2.destroy();
                                         
-                                        // ★ 追加：エネミーのセリフ「...///」
                                         const enemyDialog2 = scene.add.text(smallEnemy.x, smallEnemy.y - 100, "...///", {
                                             fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                         }).setOrigin(0.5).setDepth(1000);
@@ -1057,7 +1124,6 @@
                         targets: [txt1, txt2], y: '-=20', duration: 350, yoyo: true, repeat: -1, ease: 'Quad.easeOut'
                     });
                     
-                    // ★ 14秒後の爆発（一番最初のようなシンプルなフラッシュとシェイクに修正）
                     scene.time.delayedCall(14000, () => {
                         try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
                         scene.cameras.main.shake(3000, 0.1); 
@@ -1073,6 +1139,12 @@
                                     scene.add.text(360, -640, 'GAME OVER', { 
                                         fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
                                     }).setOrigin(0.5).setDepth(2001);
+                                    
+                                    // ★ タイトル画面に戻る
+                                    scene.time.delayedCall(4000, () => { 
+                                        scene.sound.stopAll(); 
+                                        scene.scene.start('TitleScene'); 
+                                    });
                                 });
                             }
                         });
@@ -1455,7 +1527,7 @@
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH, width: 720, height: 1280, parent: 'game-container' },
         backgroundColor: '#1e1e1e',
         physics: { default: 'arcade', arcade: { debug: false } },
-        scene: { preload: preload, create: create, update: update }
+        scene: [TitleScene, GameScene]
     };
     const game = new Phaser.Game(config);
     </script>
