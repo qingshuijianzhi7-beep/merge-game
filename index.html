@@ -651,7 +651,6 @@
                                                 if (activeHero && activeHero.body) {
                                                     activeHero.body.setVelocity(0, 0);
                                                     activeHero.body.moves = false; 
-                                                    activeHero.body.enable = false;
                                                 }
 
                                                 bossUI.forEach(ui => ui.setVisible(false));
@@ -793,6 +792,8 @@
                                                                                                     onComplete: () => {
                                                                                                         energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
                                                                                                         boomTimer.remove(); 
+                                                                                                        
+                                                                                                        if (activeHero && activeHero.active) activeHero.destroy();
                                                                                                         
                                                                                                         try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
                                                                                                         scene.cameras.main.shake(3000, 0.1); 
@@ -1247,8 +1248,14 @@
                                     
                                     if (activeHero && activeHero.body) {
                                         activeHero.body.setVelocity(0, 0);
-                                        activeHero.body.moves = false; 
-                                        activeHero.body.enable = false; // ★敵の攻撃を完全に無効化
+                                        activeHero.body.checkCollision.none = true; 
+                                    }
+
+                                    if (activeHero) {
+                                        activeHero.setVisible(true);
+                                        activeHero.setAlpha(1);
+                                        activeHero.setDepth(350);
+                                        activeHero.clearTint();
                                     }
 
                                     scene.tweens.killTweensOf(bossEnemy);
@@ -1258,11 +1265,11 @@
                                     if (timerTextUI) timerTextUI.setVisible(false);
                                     if (timerSuffix) timerSuffix.setVisible(false);
 
-                                    // ★ヒーローを画面下部で待機させる
+                                    // ★ヒーローを画面下部で安全に待機させる
                                     scene.tweens.add({
                                         targets: activeHero,
                                         x: 360,
-                                        y: -250, 
+                                        y: -150, 
                                         duration: 1500,
                                         ease: 'Power2'
                                     });
@@ -1360,7 +1367,6 @@
                                                                     scene.time.delayedCall(3000, () => {
                                                                         enemyDialog1.destroy();
                                                                         
-                                                                        // ★ヒーローがエネミーの隣へ移動
                                                                         scene.tweens.add({
                                                                             targets: activeHero,
                                                                             x: smallEnemy.x - 80,
@@ -1369,10 +1375,8 @@
                                                                             ease: 'Power2',
                                                                             onComplete: () => {
                                                                                 
-                                                                                // ★少し間を空ける
                                                                                 scene.time.delayedCall(1000, () => {
                                                                                     
-                                                                                    // ★画像同士を少しだけ重ねる
                                                                                     scene.tweens.add({
                                                                                         targets: activeHero,
                                                                                         x: smallEnemy.x - 25, 
@@ -1380,7 +1384,6 @@
                                                                                         ease: 'Power2',
                                                                                         onComplete: () => {
                                                                                             
-                                                                                            // ★重なった後にセリフ
                                                                                             const heroDialog2 = scene.add.text(activeHero.x, activeHero.y - 80, "よかった。。。ほんとうに", {
                                                                                                 fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                                                             }).setOrigin(0.5).setDepth(400);
@@ -1390,7 +1393,6 @@
                                                                                                 
                                                                                                 scene.time.delayedCall(500, () => {
                                                                                                     
-                                                                                                    // ★ 白い光（長め）
                                                                                                     const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(1000);
                                                                                                     whiteOut.setAlpha(0);
                                                                                                     
@@ -1400,7 +1402,6 @@
                                                                                                         duration: 3500, 
                                                                                                         onComplete: () => {
                                                                                                             
-                                                                                                            // ★ 背景を黒に切り替え
                                                                                                             whiteOut.setFillStyle(0x000000);
                                                                                                             
                                                                                                             scene.sound.stopAll();
@@ -1409,11 +1410,11 @@
                                                                                                             const bdayImg = scene.add.sprite(360, -640, 'birthday_img').setOrigin(0.5).setDepth(1001);
                                                                                                             bdayImg.on('textureerrored', function() { bdayImg.destroy(); }); 
                                                                                                             
-                                                                                                            // ★ 縦にピョンピョンとノリノリで弾む
+                                                                                                            // ★ 縦にピョンピョンと弾むノリノリな動き
                                                                                                             scene.tweens.add({
                                                                                                                 targets: bdayImg,
-                                                                                                                y: bdayImg.y - 40,
-                                                                                                                scaleY: 0.95,
+                                                                                                                y: bdayImg.y - 60,
+                                                                                                                scaleY: 0.9,
                                                                                                                 scaleX: 1.05,
                                                                                                                 duration: 350, 
                                                                                                                 yoyo: true,
@@ -1430,14 +1431,56 @@
                                                                                                                     fontSize: '70px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
                                                                                                                 }).setOrigin(0.5).setDepth(1002);
                                                                                                                 
-                                                                                                                // ★ 文字も一緒にノリノリ
                                                                                                                 scene.tweens.add({
                                                                                                                     targets: [txt1, txt2],
-                                                                                                                    y: '-=20',
+                                                                                                                    y: '-=30',
                                                                                                                     duration: 350,
                                                                                                                     yoyo: true,
                                                                                                                     repeat: -1,
                                                                                                                     ease: 'Quad.easeOut'
+                                                                                                                });
+                                                                                                                
+                                                                                                                // ★ 14秒後のリアルな大爆発
+                                                                                                                scene.time.delayedCall(14000, () => {
+                                                                                                                    try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
+                                                                                                                    try { scene.sound.play('explode', { volume: 5.0 }); } catch(e){}
+                                                                                                                    scene.cameras.main.shake(3000, 0.08);
+
+                                                                                                                    const blastFlash = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(2000);
+                                                                                                                    scene.tweens.add({ targets: blastFlash, alpha: 0, duration: 1500, ease: 'Power2' });
+
+                                                                                                                    const shockwave = scene.add.circle(360, -640, 10, 0xffaa00).setStrokeStyle(20, 0xff5500, 1).setDepth(1999);
+                                                                                                                    scene.tweens.add({ targets: shockwave, radius: 1500, alpha: 0, duration: 1000, ease: 'Cubic.easeOut' });
+
+                                                                                                                    for(let i=0; i<40; i++) {
+                                                                                                                        const bx = 360 + Phaser.Math.Between(-400, 400);
+                                                                                                                        const by = -640 + Phaser.Math.Between(-600, 600);
+                                                                                                                        const fireball = scene.add.circle(bx, by, Phaser.Math.Between(80, 200), Phaser.Utils.Array.GetRandom([0xff4400, 0xffaa00, 0xff0000, 0xffff00])).setDepth(1998);
+                                                                                                                        fireball.setBlendMode(Phaser.BlendModes.ADD);
+                                                                                                                        scene.tweens.add({
+                                                                                                                            targets: fireball,
+                                                                                                                            scale: Phaser.Math.FloatBetween(2, 6),
+                                                                                                                            alpha: 0,
+                                                                                                                            duration: Phaser.Math.Between(1500, 3000),
+                                                                                                                            ease: 'Power2',
+                                                                                                                            onComplete: () => fireball.destroy()
+                                                                                                                        });
+                                                                                                                    }
+                                                                                                                    
+                                                                                                                    for(let i=0; i<30; i++) {
+                                                                                                                        const sx = 360 + Phaser.Math.Between(-500, 500);
+                                                                                                                        const sy = -640 + Phaser.Math.Between(-700, 700);
+                                                                                                                        const smoke = scene.add.circle(sx, sy, Phaser.Math.Between(150, 300), 0x222222).setDepth(1997);
+                                                                                                                        scene.tweens.add({
+                                                                                                                            targets: smoke,
+                                                                                                                            scale: Phaser.Math.FloatBetween(2, 5),
+                                                                                                                            alpha: 0,
+                                                                                                                            y: sy - 400,
+                                                                                                                            duration: Phaser.Math.Between(2500, 5000),
+                                                                                                                            ease: 'Sine.easeOut',
+                                                                                                                            onComplete: () => smoke.destroy()
+                                                                                                                        });
+                                                                                                                    }
                                                                                                                 });
                                                                                                             });
                                                                                                         }
