@@ -69,7 +69,6 @@
         this.load.image('cat2', 'cat2.png');
         this.load.image('cat3', 'cat3.png');
         
-        // ★新規追加の画像と音声
         this.load.image('birthday_img', 'birthday_img.png');
         this.load.audio('musicbox', 'musicbox.mp3');
         this.load.audio('birthday', 'birthday.mp3');
@@ -743,47 +742,12 @@
                                                                                     chargeBall.destroy();
                                                                                     chargeAura.destroy();
                                                                                     
-                                                                                    try { scene.sound.play('launch', { volume: 4.0 }); } catch(e){}
-                                                                                    
-                                                                                    const boomTimer = scene.time.addEvent({
-                                                                                        delay: 150, loop: true,
-                                                                                        callback: () => { try { scene.sound.play('explode', { volume: 2.0 }); } catch(e){} }
-                                                                                    });
-
-                                                                                    scene.cameras.main.shake(3000, 0.05);
-
-                                                                                    const beamY = bossEnemy.y + 150;
-                                                                                    
-                                                                                    const outerBeam = scene.add.ellipse(360, beamY, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(300);
-                                                                                    const midBeam = scene.add.ellipse(360, beamY, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(301);
-                                                                                    const coreBeam = scene.add.ellipse(360, beamY, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(302);
-                                                                                    
-                                                                                    outerBeam.scaleY = 0; midBeam.scaleY = 0; coreBeam.scaleY = 0;
-                                                                                    outerBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                    midBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                    coreBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                    
-                                                                                    const energyLines = [];
-                                                                                    for (let i = 0; i < 40; i++) {
-                                                                                        const lineX = 360 + Phaser.Math.Between(-800, 800);
-                                                                                        const lineW = Phaser.Math.Between(3, 10); 
-                                                                                        const lineH = Phaser.Math.Between(200, 600);
-                                                                                        const line = scene.add.rectangle(lineX, beamY, lineW, lineH, 0xffffff, 0.9).setOrigin(0.5, 0).setDepth(303);
-                                                                                        line.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                        
-                                                                                        const lineTween = scene.tweens.add({
-                                                                                            targets: line, y: beamY + 3500, duration: Phaser.Math.Between(150, 300), repeat: -1, delay: Phaser.Math.Between(0, 100)
-                                                                                        });
-                                                                                        energyLines.push({ rect: line, tween: lineTween });
-                                                                                    }
-
                                                                                     scene.tweens.add({
                                                                                         targets: [outerBeam, midBeam, coreBeam],
                                                                                         scaleY: 1, 
                                                                                         duration: 150, 
                                                                                         ease: 'Power2',
                                                                                         onComplete: () => {
-                                                                                            
                                                                                             scene.time.delayedCall(1000, () => {
                                                                                                 const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(400);
                                                                                                 scene.tweens.add({
@@ -808,6 +772,41 @@
                                                                                     });
                                                                                 }
                                                                             });
+                                                                            
+                                                                            try { scene.sound.play('launch', { volume: 4.0 }); } catch(e){}
+                                                                            
+                                                                            const boomTimer = scene.time.addEvent({
+                                                                                delay: 150, loop: true,
+                                                                                callback: () => { try { scene.sound.play('explode', { volume: 2.0 }); } catch(e){} }
+                                                                            });
+
+                                                                            scene.cameras.main.shake(3000, 0.05);
+
+                                                                            const beamY = bossEnemy.y + 150;
+                                                                            
+                                                                            const outerBeam = scene.add.ellipse(360, beamY, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(300);
+                                                                            const midBeam = scene.add.ellipse(360, beamY, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(301);
+                                                                            const coreBeam = scene.add.ellipse(360, beamY, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(302);
+                                                                            
+                                                                            outerBeam.scaleY = 0; midBeam.scaleY = 0; coreBeam.scaleY = 0;
+                                                                            outerBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            midBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            coreBeam.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            
+                                                                            const energyLines = [];
+                                                                            for (let i = 0; i < 40; i++) {
+                                                                                const lineX = 360 + Phaser.Math.Between(-800, 800);
+                                                                                const lineW = Phaser.Math.Between(3, 10); 
+                                                                                const lineH = Phaser.Math.Between(200, 600);
+                                                                                const line = scene.add.rectangle(lineX, beamY, lineW, lineH, 0xffffff, 0.9).setOrigin(0.5, 0).setDepth(303);
+                                                                                line.setBlendMode(Phaser.BlendModes.ADD);
+                                                                                
+                                                                                const lineTween = scene.tweens.add({
+                                                                                    targets: line, y: beamY + 3500, duration: Phaser.Math.Between(150, 300), repeat: -1, delay: Phaser.Math.Between(0, 100)
+                                                                                });
+                                                                                energyLines.push({ rect: line, tween: lineTween });
+                                                                            }
+
                                                                         }
                                                                     });
                                                                 });
@@ -1257,10 +1256,11 @@
                                     if (timerTextUI) timerTextUI.setVisible(false);
                                     if (timerSuffix) timerSuffix.setVisible(false);
 
+                                    // ★ ヒーローを見失わないようにボスの少し下で待機させる
                                     scene.tweens.add({
                                         targets: activeHero,
                                         x: 360,
-                                        y: -250, 
+                                        y: -850, 
                                         duration: 1500,
                                         ease: 'Power2'
                                     });
@@ -1335,7 +1335,6 @@
                                                         smallEnemy.setDisplaySize(80, 80);
 
                                                         scene.time.delayedCall(1500, () => {
-                                                            // エネミーのセリフ（白）
                                                             const confuseText = scene.add.text(smallEnemy.x, smallEnemy.y - 80, "俺は今まで何を？？？", {
                                                                 fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                             }).setOrigin(0.5).setDepth(400);
@@ -1343,10 +1342,8 @@
                                                             scene.time.delayedCall(2500, () => {
                                                                 confuseText.destroy();
                                                                 
-                                                                // ★オルゴール再生
                                                                 try { scene.sound.play('musicbox', { volume: 1.0 }); } catch(e){}
                                                                 
-                                                                // ヒーローのセリフ（水色にして区別）
                                                                 const heroDialog1 = scene.add.text(activeHero.x, activeHero.y - 80, "大丈夫？", {
                                                                     fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                                 }).setOrigin(0.5).setDepth(400);
@@ -1354,7 +1351,6 @@
                                                                 scene.time.delayedCall(2000, () => {
                                                                     heroDialog1.destroy();
                                                                     
-                                                                    // エネミーのセリフ（白）
                                                                     const enemyDialog1 = scene.add.text(smallEnemy.x, smallEnemy.y - 80, "うん、いろいろ迷惑かけてごめんなさい", {
                                                                         fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                                     }).setOrigin(0.5).setDepth(400);
@@ -1362,7 +1358,6 @@
                                                                     scene.time.delayedCall(3000, () => {
                                                                         enemyDialog1.destroy();
                                                                         
-                                                                        // ヒーローがエネミーの隣へ移動
                                                                         scene.tweens.add({
                                                                             targets: activeHero,
                                                                             x: smallEnemy.x - 80,
@@ -1370,7 +1365,6 @@
                                                                             duration: 1500,
                                                                             ease: 'Power2',
                                                                             onComplete: () => {
-                                                                                // ヒーローのセリフ（水色）
                                                                                 const heroDialog2 = scene.add.text(activeHero.x, activeHero.y - 80, "よかった。。。ほんとうに", {
                                                                                     fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
                                                                                 }).setOrigin(0.5).setDepth(400);
@@ -1378,7 +1372,6 @@
                                                                                 scene.time.delayedCall(2500, () => {
                                                                                     heroDialog2.destroy();
                                                                                     
-                                                                                    // 画像が重なり合う
                                                                                     scene.tweens.add({
                                                                                         targets: activeHero,
                                                                                         x: smallEnemy.x,
@@ -1387,26 +1380,46 @@
                                                                                         ease: 'Power2',
                                                                                         onComplete: () => {
                                                                                             scene.time.delayedCall(500, () => {
-                                                                                                // ★白い光に包まれる
+                                                                                                
+                                                                                                // ★ 白い光（長め）
                                                                                                 const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(1000);
                                                                                                 whiteOut.setAlpha(0);
                                                                                                 
                                                                                                 scene.tweens.add({
                                                                                                     targets: whiteOut,
                                                                                                     alpha: 1,
-                                                                                                    duration: 2000,
+                                                                                                    duration: 3500, 
                                                                                                     onComplete: () => {
-                                                                                                        // オルゴールを止めて、誕生日BGMを再生
+                                                                                                        
+                                                                                                        // ★ 誕生日画像時の背景は黒にして
+                                                                                                        whiteOut.setFillStyle(0x000000);
+                                                                                                        
                                                                                                         scene.sound.stopAll();
                                                                                                         try { scene.sound.play('birthday', { volume: 1.0 }); } catch(e){}
                                                                                                         
-                                                                                                        // ★誕生日の画像を表示
+                                                                                                        // ★ 誕生日画像
                                                                                                         const bdayImg = scene.add.sprite(360, -640, 'birthday_img').setDepth(1001);
-                                                                                                        bdayImg.on('textureerrored', function() { bdayImg.destroy(); }); // 画像未設定時エラー回避
+                                                                                                        bdayImg.on('textureerrored', function() { bdayImg.destroy(); }); 
+                                                                                                        
+                                                                                                        // ★ 画像がほんの少し上下にゆっくりノッてるみたいに揺れる
+                                                                                                        scene.tweens.add({
+                                                                                                            targets: bdayImg,
+                                                                                                            y: bdayImg.y - 15,
+                                                                                                            duration: 2000,
+                                                                                                            yoyo: true,
+                                                                                                            repeat: -1,
+                                                                                                            ease: 'Sine.easeInOut'
+                                                                                                        });
                                                                                                         
                                                                                                         scene.time.delayedCall(1000, () => {
-                                                                                                            scene.add.text(360, -640, 'HAPPY BIRTHDAY!!', { 
-                                                                                                                fontSize: '60px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
+                                                                                                            // ★ Happy の文字は画像の上
+                                                                                                            scene.add.text(360, -950, 'Happy', { 
+                                                                                                                fontSize: '70px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
+                                                                                                            }).setOrigin(0.5).setDepth(1002);
+
+                                                                                                            // ★ Birthday‼は画像の下
+                                                                                                            scene.add.text(360, -330, 'Birthday!!', { 
+                                                                                                                fontSize: '70px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
                                                                                                             }).setOrigin(0.5).setDepth(1002);
                                                                                                         });
                                                                                                     }
