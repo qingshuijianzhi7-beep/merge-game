@@ -54,47 +54,42 @@
     var isTimeOver = false;
 
     // ==========================================
-    // リソース読み込み
-    // ==========================================
-    function preload() {
-        this.load.image('hero', 'hero.png');
-        this.load.image('arrow', 'arrow.png');
-        this.load.image('enemy', 'enemy.png');
-        this.load.image('enemy2', 'enemy2.png'); 
-        this.load.image('enemy2_roar', 'enemy2_roar.png'); 
-        this.load.image('partner', 'partner.png'); 
-        this.load.image('superhero', 'superhero.png'); 
-        this.load.image('missile', 'missile.png');
-        
-        this.load.image('cat1', 'cat1.png');
-        this.load.image('cat2', 'cat2.png');
-        this.load.image('cat3', 'cat3.png');
-        
-        this.load.image('birthday_img', 'birthday_img.png');
-        this.load.audio('musicbox', 'musicbox.mp3');
-        this.load.audio('birthday', 'birthday.mp3');
-        
-        this.load.audio('shoot', 'shoot.mp3');
-        this.load.audio('hit', 'hit.mp3');
-        this.load.audio('crowned', 'crowned.mp3');
-        this.load.audio('roar', 'roar.mp3'); 
-        this.load.audio('alarm', 'alarm.mp3'); 
-        this.load.audio('explode', 'explode.mp3');
-        this.load.audio('launch', 'launch.mp3');
-        this.load.audio('warp_out', 'warp_out.mp3'); 
-        this.load.audio('charge', 'charge.mp3');
-        this.load.audio('warp_in', 'warp_in.mp3'); 
-        this.load.audio('hero_hit', 'hero_hit.mp3'); 
-        this.load.audio('meow', 'meow.mp3'); 
-        this.load.audio('mass_explode', 'explode.mp3'); 
-    }
-
-    // ==========================================
     // タイトル画面シーン
     // ==========================================
-    const TitleScene = {
+    var TitleScene = {
         key: 'TitleScene',
-        preload: preload,
+        preload: function() {
+            this.load.image('hero', 'hero.png');
+            this.load.image('arrow', 'arrow.png');
+            this.load.image('enemy', 'enemy.png');
+            this.load.image('enemy2', 'enemy2.png'); 
+            this.load.image('enemy2_roar', 'enemy2_roar.png'); 
+            this.load.image('partner', 'partner.png'); 
+            this.load.image('superhero', 'superhero.png'); 
+            this.load.image('missile', 'missile.png');
+            
+            this.load.image('cat1', 'cat1.png');
+            this.load.image('cat2', 'cat2.png');
+            this.load.image('cat3', 'cat3.png');
+            
+            this.load.image('birthday_img', 'birthday_img.png');
+            this.load.audio('musicbox', 'musicbox.mp3');
+            this.load.audio('birthday', 'birthday.mp3');
+            
+            this.load.audio('shoot', 'shoot.mp3');
+            this.load.audio('hit', 'hit.mp3');
+            this.load.audio('crowned', 'crowned.mp3');
+            this.load.audio('roar', 'roar.mp3'); 
+            this.load.audio('alarm', 'alarm.mp3'); 
+            this.load.audio('explode', 'explode.mp3');
+            this.load.audio('launch', 'launch.mp3');
+            this.load.audio('warp_out', 'warp_out.mp3'); 
+            this.load.audio('charge', 'charge.mp3');
+            this.load.audio('warp_in', 'warp_in.mp3'); 
+            this.load.audio('hero_hit', 'hero_hit.mp3'); 
+            this.load.audio('meow', 'meow.mp3'); 
+            this.load.audio('mass_explode', 'explode.mp3'); 
+        },
         create: function() {
             this.cameras.main.setBackgroundColor('#1e1e1e');
             
@@ -123,7 +118,7 @@
     // ==========================================
     // ゲーム本編シーン
     // ==========================================
-    const GameScene = {
+    var GameScene = {
         key: 'GameScene',
         create: function() {
             globalHP = 1000;
@@ -145,10 +140,14 @@
             timerSuffix = null;
             timerEvent = null;
 
-            const g = this.make.graphics({x: 0, y: 0, add: false});
-            g.fillStyle(0xffffff);
-            g.fillRect(0, 0, 3, 3); 
-            g.generateTexture('star', 3, 3);
+            // ★ タイトルから戻った際の重複エラー防止
+            if (!this.textures.exists('star')) {
+                const g = this.make.graphics({x: 0, y: 0, add: false});
+                g.fillStyle(0xffffff);
+                g.fillRect(0, 0, 3, 3); 
+                g.generateTexture('star', 3, 3);
+                g.destroy();
+            }
 
             if (this.textures.exists('cat1') && this.textures.exists('cat2') && this.textures.exists('cat3')) {
                 if (!this.anims.exists('cat_run')) {
@@ -694,7 +693,6 @@
                                     timerTextUI.setVisible(true);
                                     timerSuffix.setVisible(true);
                                     
-                                    // ★ タイマーイベント
                                     timerEvent = scene.time.addEvent({
                                         delay: 1000, loop: true,
                                         callback: () => {
@@ -703,7 +701,6 @@
                                             timerTextUI.setText(`${timeLeft}`);
                                             timerSuffix.x = timerTextUI.x + timerTextUI.width;
                                             
-                                            // ★ タイムオーバー時（完全にオリジナル版に復元し、タイトルへ戻る処理だけ追加）
                                             if (timeLeft <= 0) {
                                                 isTimeOver = true; 
                                                 bossEnemy.setData('timeOver', true);
@@ -713,13 +710,11 @@
 
                                                 if (activeHero && activeHero.body) {
                                                     activeHero.body.setVelocity(0, 0);
-                                                    activeHero.body.moves = false; // ★ ここで完全固定
                                                 }
 
                                                 bossUI.forEach(ui => ui.setVisible(false));
                                                 heroShooterUI.forEach(ui => ui.setVisible(false));
 
-                                                // 「0」以外の文字も消さないための位置調整処理
                                                 const camX = scene.cameras.main.scrollX;
                                                 const camY = scene.cameras.main.scrollY;
                                                 
@@ -751,19 +746,11 @@
                                                         timerSuffix.setVisible(false);
 
                                                         scene.tweens.add({
-                                                            targets: activeHero,
-                                                            x: 360,
-                                                            y: -350, 
-                                                            duration: 1500,
-                                                            ease: 'Power2'
+                                                            targets: activeHero, x: 360, y: -350, duration: 1500, ease: 'Power2'
                                                         });
 
                                                         scene.tweens.add({
-                                                            targets: bossEnemy, 
-                                                            y: -1150, 
-                                                            x: 360,
-                                                            duration: 2000,
-                                                            ease: 'Sine.easeInOut',
+                                                            targets: bossEnemy, y: -1150, duration: 2000, ease: 'Sine.easeInOut',
                                                             onComplete: () => {
                                                                 const winText = scene.add.text(360, bossEnemy.y + 250, "はい！僕の勝ちWWW", { 
                                                                     fontSize: '60px', fill: '#ff0000', fontStyle: 'bold', align: 'center', stroke: '#fff', strokeThickness: 8 
@@ -773,111 +760,45 @@
                                                                     winText.destroy();
                                                                     
                                                                     scene.tweens.add({
-                                                                        targets: bossEnemy, 
-                                                                        displayWidth: 1000, 
-                                                                        displayHeight: 300, 
-                                                                        duration: 1500, 
-                                                                        ease: 'Sine.easeOut',
+                                                                        targets: bossEnemy, displayWidth: 1000, displayHeight: 300, duration: 1500, ease: 'Sine.easeOut',
                                                                         onComplete: () => {
-                                                                            
                                                                             try { scene.sound.play('charge', { volume: 3.0 }); } catch(e){}
                                                                             
-                                                                            const chargeBall = scene.add.circle(360, bossEnemy.y + 150, 10, 0xffffff).setDepth(260);
-                                                                            const chargeAura = scene.add.circle(360, bossEnemy.y + 150, 20, 0x00ffff, 0.6).setDepth(259);
-                                                                            chargeBall.setBlendMode(Phaser.BlendModes.ADD);
-                                                                            chargeAura.setBlendMode(Phaser.BlendModes.ADD);
+                                                                            const chargeBall = scene.add.circle(360, bossEnemy.y + 150, 10, 0xffffff).setDepth(260).setBlendMode(Phaser.BlendModes.ADD);
+                                                                            const chargeAura = scene.add.circle(360, bossEnemy.y + 150, 20, 0x00ffff, 0.6).setDepth(259).setBlendMode(Phaser.BlendModes.ADD);
 
                                                                             scene.tweens.add({ targets: chargeBall, alpha: 0.1, duration: 60, yoyo: true, repeat: -1 });
 
                                                                             scene.time.delayedCall(1000, () => {
                                                                                 if (activeHero && activeHero.active) {
-                                                                                    scene.add.text(activeHero.x, activeHero.y - 80, "(;_;)", { 
-                                                                                        fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 
-                                                                                    }).setOrigin(0.5).setDepth(280);
+                                                                                    scene.add.text(activeHero.x, activeHero.y - 80, "(;_;)", { fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 6 }).setOrigin(0.5).setDepth(280);
                                                                                 }
                                                                             });
 
                                                                             scene.tweens.add({
-                                                                                targets: [chargeBall, chargeAura],
-                                                                                radius: 350,
-                                                                                duration: 3000, 
-                                                                                ease: 'Cubic.easeInOut',
+                                                                                targets: [chargeBall, chargeAura], radius: 350, duration: 3000, ease: 'Cubic.easeInOut',
                                                                                 onComplete: () => {
-                                                                                    chargeBall.destroy();
-                                                                                    chargeAura.destroy();
-                                                                                    
-                                                                                    try { scene.sound.play('launch', { volume: 4.0 }); } catch(e){}
-                                                                                    
-                                                                                    const boomTimer = scene.time.addEvent({
-                                                                                        delay: 150, loop: true,
-                                                                                        callback: () => { try { scene.sound.play('explode', { volume: 2.0 }); } catch(e){} }
-                                                                                    });
-
-                                                                                    scene.cameras.main.shake(3000, 0.05);
-
-                                                                                    const beamY = bossEnemy.y + 150;
-                                                                                    
-                                                                                    const outerBeam = scene.add.ellipse(360, beamY, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(300);
-                                                                                    const midBeam = scene.add.ellipse(360, beamY, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(301);
-                                                                                    const coreBeam = scene.add.ellipse(360, beamY, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(302);
-                                                                                    
-                                                                                    outerBeam.scaleY = 0; midBeam.scaleY = 0; coreBeam.scaleY = 0;
-                                                                                    outerBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                    midBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                    coreBeam.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                    
-                                                                                    const energyLines = [];
-                                                                                    for (let i = 0; i < 40; i++) {
-                                                                                        const lineX = 360 + Phaser.Math.Between(-800, 800);
-                                                                                        const lineW = Phaser.Math.Between(3, 10); 
-                                                                                        const lineH = Phaser.Math.Between(200, 600);
-                                                                                        const line = scene.add.rectangle(lineX, beamY, lineW, lineH, 0xffffff, 0.9).setOrigin(0.5, 0).setDepth(303);
-                                                                                        line.setBlendMode(Phaser.BlendModes.ADD);
-                                                                                        
-                                                                                        const lineTween = scene.tweens.add({
-                                                                                            targets: line, y: beamY + 3500, duration: Phaser.Math.Between(150, 300), repeat: -1, delay: Phaser.Math.Between(0, 100)
-                                                                                        });
-                                                                                        energyLines.push({ rect: line, tween: lineTween });
-                                                                                    }
-
-                                                                                    scene.tweens.add({
-                                                                                        targets: [outerBeam, midBeam, coreBeam],
-                                                                                        scaleY: 1, 
-                                                                                        duration: 150, 
-                                                                                        ease: 'Power2',
-                                                                                        onComplete: () => {
-                                                                                            
-                                                                                            scene.time.delayedCall(1000, () => {
-                                                                                                
-                                                                                                const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(400);
-                                                                                                scene.tweens.add({
-                                                                                                    targets: whiteOut,
-                                                                                                    alpha: { from: 0, to: 1 },
-                                                                                                    duration: 1000,
-                                                                                                    onComplete: () => {
-                                                                                                        energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
-                                                                                                        boomTimer.remove(); 
+                                                                                    chargeBall.destroy(); chargeAura.destroy();
+                                                                                    fireTimeOverBeam(scene, bossEnemy.x, bossEnemy.y + 150, () => {
+                                                                                        scene.time.delayedCall(1000, () => {
+                                                                                            const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(400);
+                                                                                            scene.tweens.add({
+                                                                                                targets: whiteOut, alpha: { from: 0, to: 1 }, duration: 1000,
+                                                                                                onComplete: () => {
+                                                                                                    if (activeHero && activeHero.active) activeHero.destroy();
+                                                                                                    try { scene.sound.play('explode', { volume: 5.0 }); } catch(e){}
+                                                                                                    scene.cameras.main.shake(3000, 0.1); 
+                                                                                                    scene.time.delayedCall(1000, () => {
+                                                                                                        scene.add.text(360, -640, 'GAME OVER', { fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 }).setOrigin(0.5).setDepth(500);
                                                                                                         
-                                                                                                        if (activeHero && activeHero.active) activeHero.destroy();
-                                                                                                        
-                                                                                                        try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
-                                                                                                        scene.cameras.main.shake(3000, 0.1); 
-                                                                                                        
-                                                                                                        scene.time.delayedCall(1000, () => {
-                                                                                                            scene.add.text(360, -640, 'GAME OVER', { 
-                                                                                                                fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
-                                                                                                            }).setOrigin(0.5).setDepth(500);
-                                                                                                            
-                                                                                                            // ★ タイムオーバー時、タイトルへ戻す
-                                                                                                            scene.time.delayedCall(4000, () => {
-                                                                                                                scene.sound.stopAll();
-                                                                                                                scene.scene.start('TitleScene');
-                                                                                                            });
+                                                                                                        scene.time.delayedCall(4000, () => { 
+                                                                                                            scene.sound.stopAll(); 
+                                                                                                            scene.scene.start('TitleScene'); 
                                                                                                         });
-                                                                                                    }
-                                                                                                });
+                                                                                                    });
+                                                                                                }
                                                                                             });
-                                                                                        }
+                                                                                        });
                                                                                     });
                                                                                 }
                                                                             });
@@ -888,20 +809,390 @@
                                                         });
                                                     });
                                                 });
-                                            });
+                                            }
                                         }
+                                    });
+
+                                    startAutoShooting(scene, hero);
+                                    scene.time.delayedCall(1000, () => startBossAttack(scene));
+                                }
+                            });
+                        });
+                    }
+                });
+            }
+        });
+    }
+
+    function takeHeroShooterDamage(scene, amount) {
+        if (isTimeOver || isInvincible) return; 
+        globalHP -= amount;
+        if (globalHP < 0) globalHP = 0;
+        
+        hpBarFill.width = 380 * (globalHP / MAX_HP);
+        hpText.setText(`${globalHP} / ${MAX_HP}`);
+
+        if (heroShooterUI.length > 0) {
+            heroShooterUI[1].width = 660 * (globalHP / 1000);
+            heroShooterUI[2].setText(`HP: ${globalHP} / 1000`);
+        }
+
+        if (activeHero) {
+            activeHero.setTint(0xff0000);
+            scene.time.delayedCall(100, () => {
+                if (activeHero && activeHero.active) activeHero.clearTint();
+            });
+        }
+
+        if (globalHP <= 0 && isShooterMode) {
+            isShooterMode = false;
+            if (timerEvent) timerEvent.remove();
+            scene.add.text(360, -640, 'GAME OVER', { 
+                fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
+            }).setOrigin(0.5).setDepth(1000);
+            if (activeHero) activeHero.destroy();
+            
+            scene.time.delayedCall(3000, () => { scene.sound.stopAll(); scene.scene.start('TitleScene'); });
+        }
+    }
+
+    function startAutoShooting(scene, hero) {
+        scene.time.addEvent({
+            delay: 150, 
+            loop: true,
+            callback: () => {
+                if (!isShooterMode || !hero || !hero.active || isTimeOver) return; 
+                
+                const bullet = scene.add.sprite(hero.x, hero.y - 50, 'arrow').setOrigin(0.5).setDepth(255);
+                bullet.setDisplaySize(40, 100); 
+                scene.physics.add.existing(bullet);
+                bullet.body.setVelocityY(-2000); 
+                
+                try { scene.sound.play('shoot'); } catch(e){}
+                
+                const checkHitEvent = scene.time.addEvent({
+                    delay: 20, loop: true,
+                    callback: () => {
+                        if (!bullet || !bullet.active || isTimeOver) { 
+                            if (isTimeOver && bullet && bullet.active) bullet.destroy();
+                            checkHitEvent.remove(); 
+                            return; 
+                        }
+                        
+                        if (bullet.y < -1380) { 
+                            bullet.destroy();
+                            checkHitEvent.remove();
+                        } else if (bossEnemy && bossEnemy.active) {
+                            if (bullet.x > bossEnemy.x - 120 && bullet.x < bossEnemy.x + 90 && bullet.y < bossEnemy.y + 100 && bullet.y > bossEnemy.y - 120) {
+                                bullet.destroy();
+                                checkHitEvent.remove();
+                                try { scene.sound.play('hit'); } catch(e){}
+                                
+                                bossEnemy.setTint(0xff8888);
+                                scene.time.delayedCall(50, () => {
+                                    if (bossEnemy && bossEnemy.active) bossEnemy.clearTint();
+                                });
+
+                                bossHP -= 150; 
+                                if (bossHP < 0) bossHP = 0;
+                                if (bossUI && bossUI.length > 1 && bossUI[1]) {
+                                    const bMax = (typeof bossMaxHP !== 'undefined') ? bossMaxHP : 40500;
+                                    bossUI[1].width = 660 * (bossHP / bMax);
+                                }
+                                
+                                // ★ボス撃破シーケンス開始
+                                if (bossHP <= 0 && isShooterMode) {
+                                    isShooterMode = false;
+                                    isTimeOver = true; 
+                                    isInvincible = true; 
+
+                                    if (timerEvent) timerEvent.remove();
+                                    
+                                    bossUI.forEach(ui => ui.setVisible(false));
+                                    if (timerPrefix) timerPrefix.setVisible(false);
+                                    if (timerTextUI) timerTextUI.setVisible(false);
+                                    if (timerSuffix) timerSuffix.setVisible(false);
+
+                                    triggerBossDefeat(scene, activeHero, bossEnemy);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    function triggerBossDefeat(scene, hero, boss) {
+        scene.tweens.killTweensOf(boss);
+        
+        if (hero) {
+            scene.tweens.killTweensOf(hero);
+            hero.setVisible(true);
+            hero.setAlpha(1);
+            hero.clearTint();
+            hero.setDepth(999);
+            if(hero.body) hero.body.enable = false; 
+        }
+
+        scene.tweens.add({
+            targets: hero,
+            x: 360,
+            y: -250, 
+            duration: 1500,
+            ease: 'Power2'
+        });
+
+        scene.tweens.add({
+            targets: boss,
+            y: -1100, 
+            duration: 1500,
+            ease: 'Sine.easeInOut',
+            onComplete: () => {
+                scene.time.delayedCall(500, () => {
+                    const deathText = scene.add.text(boss.x, boss.y - 150, "ちくしょおおおおおおおお！！！！", { 
+                        fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 6 
+                    }).setOrigin(0.5).setDepth(400);
+
+                    scene.time.delayedCall(2000, () => {
+                        deathText.setText("僕は車の免許だってもってるのにいいいい！！");
+                        deathText.setFontSize('30px');
+
+                        // ★ 少し長めにする（3.5秒）
+                        scene.time.delayedCall(3500, () => {
+                            deathText.destroy();
+                            bossExplode(scene, hero, boss);
+                        });
+                    });
+                });
+            }
+        });
+    }
+
+    function bossExplode(scene, hero, boss) {
+        try { scene.sound.play('explode', { volume: 3.0 }); } catch(e){}
+        scene.cameras.main.shake(1000, 0.05);
+
+        const exX = boss.x;
+        const exY = boss.y;
+        const cols = 4;
+        const rows = 4;
+        const bw = boss.displayWidth;
+        const bh = boss.displayHeight;
+        const texW = boss.width;
+        const texH = boss.height;
+        const texCW = texW / cols;
+        const texCH = texH / rows;
+        const scaleX = boss.scaleX;
+        const scaleY = boss.scaleY;
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                const offsetX = (c - cols / 2 + 0.5) * (bw / cols);
+                const offsetY = (r - rows / 2 + 0.5) * (bh / rows);
+                const shard = scene.add.sprite(exX + offsetX, exY + offsetY, boss.texture.key).setDepth(260);
+                shard.setScale(scaleX, scaleY);
+                shard.setCrop(c * texCW, r * texCH, texCW, texCH);
+                scene.physics.add.existing(shard);
+
+                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
+                const speed = Phaser.Math.Between(300, 800);
+                shard.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+                shard.body.setAngularVelocity(Phaser.Math.Between(-300, 300));
+
+                scene.tweens.add({
+                    targets: shard, alpha: 0, angle: Phaser.Math.Between(360, 720),
+                    duration: Phaser.Math.Between(1000, 1500),
+                    onComplete: () => shard.destroy()
+                });
+            }
+        }
+
+        boss.destroy();
+        scene.time.delayedCall(500, () => { scene.sound.stopAll(); });
+
+        const smallEnemy = scene.add.sprite(exX, exY, 'enemy').setOrigin(0.5).setDepth(255);
+        smallEnemy.setDisplaySize(140, 140); // ★ ヒーローと同じサイズに
+
+        scene.time.delayedCall(1500, () => {
+            const confuseText = scene.add.text(smallEnemy.x, smallEnemy.y - 100, "俺は今まで何を？？？", {
+                fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
+            }).setOrigin(0.5).setDepth(400);
+
+            scene.time.delayedCall(2500, () => {
+                confuseText.destroy();
+                playEndingSequence(scene, hero, smallEnemy);
+            });
+        });
+    }
+
+    function playEndingSequence(scene, hero, smallEnemy) {
+        try { scene.sound.play('musicbox', { volume: 1.0 }); } catch(e){}
+        
+        const heroDialog1 = scene.add.text(hero.x, hero.y - 80, "大丈夫？", {
+            fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
+        }).setOrigin(0.5).setDepth(1000);
+
+        scene.time.delayedCall(2000, () => {
+            heroDialog1.destroy();
+            
+            const enemyDialog1 = scene.add.text(smallEnemy.x, smallEnemy.y - 100, "うん、いろいろ迷惑かけてごめんなさい", {
+                fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
+            }).setOrigin(0.5).setDepth(1000);
+
+            scene.time.delayedCall(3000, () => {
+                enemyDialog1.destroy();
+                
+                scene.tweens.add({
+                    targets: hero,
+                    x: smallEnemy.x - 80,
+                    y: smallEnemy.y,
+                    duration: 1500,
+                    ease: 'Power2',
+                    onComplete: () => {
+                        scene.time.delayedCall(1000, () => {
+                            scene.tweens.add({
+                                targets: hero,
+                                x: smallEnemy.x - 25, // ★完全に隠れずにちょっとエネミーが見える位置
+                                duration: 1000,
+                                ease: 'Power2',
+                                onComplete: () => {
+                                    const heroDialog2 = scene.add.text(hero.x, hero.y - 80, "よかった。。。ほんとうに", {
+                                        fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
+                                    }).setOrigin(0.5).setDepth(1000);
+
+                                    scene.time.delayedCall(2500, () => {
+                                        heroDialog2.destroy();
+                                        
+                                        const enemyDialog2 = scene.add.text(smallEnemy.x, smallEnemy.y - 100, "...///", {
+                                            fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
+                                        }).setOrigin(0.5).setDepth(1000);
+
+                                        scene.time.delayedCall(2000, () => {
+                                            enemyDialog2.destroy();
+                                            triggerBirthdayEnding(scene);
+                                        });
                                     });
                                 }
                             });
-                        } else {
-                            targetEnemy.setData('hp', newHP);
-                            const ui = targetEnemy.getData('ui');
-                            const maxHp = targetEnemy.getData('maxHp');
-                            ui[0].setText(`${newHP}`); ui[2].width = 36 * (newHP / maxHp);
-                            scene.time.delayedCall(500, () => { if (onComplete) onComplete(); });
-                        }
+                        });
                     }
-                }
+                });
+            });
+        });
+    }
+
+    function triggerBirthdayEnding(scene) {
+        const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(1500);
+        whiteOut.setAlpha(0);
+        
+        scene.tweens.add({
+            targets: whiteOut, alpha: 1, duration: 3500, 
+            onComplete: () => {
+                whiteOut.setFillStyle(0x000000);
+                scene.sound.stopAll();
+                try { scene.sound.play('birthday', { volume: 1.0 }); } catch(e){}
+                
+                const bdayImg = scene.add.sprite(360, -640, 'birthday_img').setOrigin(0.5).setDepth(1501);
+                bdayImg.on('textureerrored', function() { bdayImg.destroy(); }); 
+                
+                scene.tweens.add({
+                    targets: bdayImg,
+                    y: bdayImg.y - 40,
+                    scaleY: 0.95,
+                    scaleX: 1.05,
+                    duration: 350, 
+                    yoyo: true,
+                    repeat: -1,
+                    ease: 'Quad.easeOut' 
+                });
+                
+                scene.time.delayedCall(500, () => {
+                    const txt1 = scene.add.text(360, -950, 'Happy', { 
+                        fontSize: '70px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
+                    }).setOrigin(0.5).setDepth(1502);
+
+                    const txt2 = scene.add.text(360, -330, 'Birthday!!', { 
+                        fontSize: '70px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
+                    }).setOrigin(0.5).setDepth(1502);
+                    
+                    scene.tweens.add({
+                        targets: [txt1, txt2], y: '-=20', duration: 350, yoyo: true, repeat: -1, ease: 'Quad.easeOut'
+                    });
+                    
+                    // ★ 14秒後の火薬爆発
+                    scene.time.delayedCall(14000, () => {
+                        try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
+                        try { scene.sound.play('explode', { volume: 5.0 }); } catch(e){}
+                        try { scene.sound.play('roar', { volume: 4.0 }); } catch(e){}
+                        
+                        scene.cameras.main.shake(1500, 0.1); 
+
+                        const flash = scene.add.rectangle(360, -640, 2000, 3000, 0xff8800).setDepth(2000);
+                        scene.tweens.add({ targets: flash, alpha: 0, duration: 800 });
+
+                        // ★ 火球
+                        for(let i=0; i<60; i++) {
+                            const bx = 360 + Phaser.Math.Between(-400, 400);
+                            const by = -640 + Phaser.Math.Between(-600, 600);
+                            const fireball = scene.add.circle(bx, by, Phaser.Math.Between(100, 250), Phaser.Utils.Array.GetRandom([0xff4400, 0xffaa00, 0xff0000, 0xffff00])).setDepth(2001);
+                            fireball.setBlendMode(Phaser.BlendModes.ADD);
+                            scene.tweens.add({
+                                targets: fireball, scale: Phaser.Math.FloatBetween(2, 6), alpha: 0,
+                                duration: Phaser.Math.Between(800, 1500), ease: 'Power2',
+                                onComplete: () => fireball.destroy()
+                            });
+                        }
+
+                        // ★ 黒煙
+                        for(let i=0; i<50; i++) {
+                            const sx = 360 + Phaser.Math.Between(-500, 500);
+                            const sy = -640 + Phaser.Math.Between(-700, 700);
+                            const smoke = scene.add.circle(sx, sy, Phaser.Math.Between(200, 400), 0x222222).setDepth(2002);
+                            scene.tweens.add({
+                                targets: smoke, scale: Phaser.Math.FloatBetween(2, 5), alpha: 0, y: sy - Phaser.Math.Between(300, 800),
+                                duration: Phaser.Math.Between(1000, 2000), ease: 'Sine.easeOut',
+                                onComplete: () => smoke.destroy()
+                            });
+                        }
+
+                        // ★ GAME OVER表記なし、約1.2秒でタイトルへ戻る
+                        scene.time.delayedCall(1200, () => {
+                            scene.sound.stopAll(); 
+                            scene.scene.start('TitleScene'); 
+                        });
+                    });
+                });
+            }
+        });
+    }
+
+    function fireTimeOverBeam(scene, x, y, onComplete) {
+        try { scene.sound.play('launch', { volume: 4.0 }); } catch(e){}
+        const boomTimer = scene.time.addEvent({ delay: 150, loop: true, callback: () => { try { scene.sound.play('explode', { volume: 2.0 }); } catch(e){} } });
+        scene.cameras.main.shake(3000, 0.05);
+
+        const outerBeam = scene.add.ellipse(360, y, 2000, 3500, 0x00ffff, 0.5).setOrigin(0.5, 0).setDepth(300).setBlendMode(Phaser.BlendModes.ADD);
+        const midBeam = scene.add.ellipse(360, y, 1200, 3500, 0x88ffff, 0.8).setOrigin(0.5, 0).setDepth(301).setBlendMode(Phaser.BlendModes.ADD);
+        const coreBeam = scene.add.ellipse(360, y, 600, 3500, 0xffffff, 1.0).setOrigin(0.5, 0).setDepth(302).setBlendMode(Phaser.BlendModes.ADD);
+        outerBeam.scaleY = 0; midBeam.scaleY = 0; coreBeam.scaleY = 0;
+
+        const energyLines = [];
+        for (let i = 0; i < 40; i++) {
+            const lineX = 360 + Phaser.Math.Between(-800, 800);
+            const line = scene.add.rectangle(lineX, y, Phaser.Math.Between(3, 10), Phaser.Math.Between(200, 600), 0xffffff, 0.9).setOrigin(0.5, 0).setDepth(303).setBlendMode(Phaser.BlendModes.ADD);
+            const lineTween = scene.tweens.add({ targets: line, y: y + 3500, duration: Phaser.Math.Between(150, 300), repeat: -1, delay: Phaser.Math.Between(0, 100) });
+            energyLines.push({ rect: line, tween: lineTween });
+        }
+
+        scene.tweens.add({
+            targets: [outerBeam, midBeam, coreBeam], scaleY: 1, duration: 150, ease: 'Power2',
+            onComplete: () => {
+                scene.time.delayedCall(1000, () => {
+                    energyLines.forEach(item => { item.tween.remove(); item.rect.destroy(); });
+                    boomTimer.remove();
+                    if(onComplete) onComplete();
+                });
             }
         });
     }
@@ -1188,323 +1479,6 @@
                 }
             });
         }
-    }
-
-    function takeHeroShooterDamage(scene, amount) {
-        if (isTimeOver || isInvincible) return; 
-        globalHP -= amount;
-        if (globalHP < 0) globalHP = 0;
-        
-        hpBarFill.width = 380 * (globalHP / MAX_HP);
-        hpText.setText(`${globalHP} / ${MAX_HP}`);
-
-        if (heroShooterUI.length > 0) {
-            heroShooterUI[1].width = 660 * (globalHP / 1000);
-            heroShooterUI[2].setText(`HP: ${globalHP} / 1000`);
-        }
-
-        if (activeHero) {
-            activeHero.setTint(0xff0000);
-            scene.time.delayedCall(100, () => {
-                if (activeHero && activeHero.active) activeHero.clearTint();
-            });
-        }
-
-        if (globalHP <= 0 && isShooterMode) {
-            isShooterMode = false;
-            if (timerEvent) timerEvent.remove();
-            scene.add.text(360, -640, 'GAME OVER', { 
-                fontSize: '80px', fill: '#ff0000', fontStyle: 'bold', stroke: '#000', strokeThickness: 8 
-            }).setOrigin(0.5).setDepth(1000);
-            if (activeHero) activeHero.destroy();
-            
-            scene.time.delayedCall(3000, () => { scene.sound.stopAll(); scene.scene.start('TitleScene'); });
-        }
-    }
-
-    function startAutoShooting(scene, hero) {
-        scene.time.addEvent({
-            delay: 150, 
-            loop: true,
-            callback: () => {
-                if (!isShooterMode || !hero || !hero.active || isTimeOver) return; 
-                
-                const bullet = scene.add.sprite(hero.x, hero.y - 50, 'arrow').setOrigin(0.5).setDepth(255);
-                bullet.setDisplaySize(40, 100); 
-                scene.physics.add.existing(bullet);
-                bullet.body.setVelocityY(-2000); 
-                
-                try { scene.sound.play('shoot'); } catch(e){}
-                
-                const checkHitEvent = scene.time.addEvent({
-                    delay: 20, loop: true,
-                    callback: () => {
-                        if (!bullet || !bullet.active || isTimeOver) { 
-                            if (isTimeOver && bullet && bullet.active) bullet.destroy();
-                            checkHitEvent.remove(); 
-                            return; 
-                        }
-                        
-                        if (bullet.y < -1380) { 
-                            bullet.destroy();
-                            checkHitEvent.remove();
-                        } else if (bossEnemy && bossEnemy.active) {
-                            if (bullet.x > bossEnemy.x - 120 && bullet.x < bossEnemy.x + 90 && bullet.y < bossEnemy.y + 100 && bullet.y > bossEnemy.y - 120) {
-                                bullet.destroy();
-                                checkHitEvent.remove();
-                                try { scene.sound.play('hit'); } catch(e){}
-                                
-                                bossEnemy.setTint(0xff8888);
-                                scene.time.delayedCall(50, () => {
-                                    if (bossEnemy && bossEnemy.active) bossEnemy.clearTint();
-                                });
-
-                                bossHP -= 150; 
-                                if (bossHP < 0) bossHP = 0;
-                                if (bossUI && bossUI.length > 1 && bossUI[1]) {
-                                    const bMax = (typeof bossMaxHP !== 'undefined') ? bossMaxHP : 40500;
-                                    bossUI[1].width = 660 * (bossHP / bMax);
-                                }
-                                
-                                if (bossHP <= 0 && isShooterMode) {
-                                    isShooterMode = false;
-                                    isTimeOver = true; 
-                                    isInvincible = true; 
-
-                                    if (timerEvent) timerEvent.remove();
-                                    
-                                    bossUI.forEach(ui => ui.setVisible(false));
-                                    if (timerPrefix) timerPrefix.setVisible(false);
-                                    if (timerTextUI) timerTextUI.setVisible(false);
-                                    if (timerSuffix) timerSuffix.setVisible(false);
-
-                                    triggerBossDefeat(scene, activeHero, bossEnemy);
-                                }
-                            }
-                        }
-                    }
-                });
-            }
-        });
-    }
-
-    function triggerBossDefeat(scene, hero, boss) {
-        scene.tweens.killTweensOf(boss);
-        
-        if (hero) {
-            scene.tweens.killTweensOf(hero);
-            hero.setVisible(true);
-            hero.setAlpha(1);
-            hero.clearTint();
-            hero.setDepth(999);
-            if(hero.body) hero.body.enable = false; 
-        }
-
-        scene.tweens.add({
-            targets: hero,
-            x: 360,
-            y: -250, 
-            duration: 1500,
-            ease: 'Power2'
-        });
-
-        scene.tweens.add({
-            targets: boss,
-            y: -1100, 
-            duration: 1500,
-            ease: 'Sine.easeInOut',
-            onComplete: () => {
-                scene.time.delayedCall(500, () => {
-                    const deathText = scene.add.text(boss.x, boss.y - 150, "ちくしょおおおおおおおお！！！！", { 
-                        fontSize: '40px', fill: '#ff0000', fontStyle: 'bold', stroke: '#fff', strokeThickness: 6 
-                    }).setOrigin(0.5).setDepth(400);
-
-                    scene.time.delayedCall(2000, () => {
-                        deathText.setText("僕は車の免許だってもってるのにいいいい！！");
-                        deathText.setFontSize('30px');
-
-                        scene.time.delayedCall(3500, () => {
-                            deathText.destroy();
-                            bossExplode(scene, hero, boss);
-                        });
-                    });
-                });
-            }
-        });
-    }
-
-    function bossExplode(scene, hero, boss) {
-        try { scene.sound.play('explode', { volume: 3.0 }); } catch(e){}
-        scene.cameras.main.shake(1000, 0.05);
-
-        const exX = boss.x;
-        const exY = boss.y;
-        const cols = 4;
-        const rows = 4;
-        const bw = boss.displayWidth;
-        const bh = boss.displayHeight;
-        const texW = boss.width;
-        const texH = boss.height;
-        const texCW = texW / cols;
-        const texCH = texH / rows;
-        const scaleX = boss.scaleX;
-        const scaleY = boss.scaleY;
-
-        for (let r = 0; r < rows; r++) {
-            for (let c = 0; c < cols; c++) {
-                const offsetX = (c - cols / 2 + 0.5) * (bw / cols);
-                const offsetY = (r - rows / 2 + 0.5) * (bh / rows);
-                const shard = scene.add.sprite(exX + offsetX, exY + offsetY, boss.texture.key).setDepth(260);
-                shard.setScale(scaleX, scaleY);
-                shard.setCrop(c * texCW, r * texCH, texCW, texCH);
-                scene.physics.add.existing(shard);
-
-                const angle = Phaser.Math.FloatBetween(0, Math.PI * 2);
-                const speed = Phaser.Math.Between(300, 800);
-                shard.body.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-                shard.body.setAngularVelocity(Phaser.Math.Between(-300, 300));
-
-                scene.tweens.add({
-                    targets: shard, alpha: 0, angle: Phaser.Math.Between(360, 720),
-                    duration: Phaser.Math.Between(1000, 1500),
-                    onComplete: () => shard.destroy()
-                });
-            }
-        }
-
-        boss.destroy();
-        scene.time.delayedCall(500, () => { scene.sound.stopAll(); });
-
-        const smallEnemy = scene.add.sprite(exX, exY, 'enemy').setOrigin(0.5).setDepth(255);
-        smallEnemy.setDisplaySize(140, 140);
-
-        scene.time.delayedCall(1500, () => {
-            const confuseText = scene.add.text(smallEnemy.x, smallEnemy.y - 100, "俺は今まで何を？？？", {
-                fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-            }).setOrigin(0.5).setDepth(400);
-
-            scene.time.delayedCall(2500, () => {
-                confuseText.destroy();
-                playEndingSequence(scene, hero, smallEnemy);
-            });
-        });
-    }
-
-    function playEndingSequence(scene, hero, smallEnemy) {
-        try { scene.sound.play('musicbox', { volume: 1.0 }); } catch(e){}
-        
-        const heroDialog1 = scene.add.text(hero.x, hero.y - 80, "大丈夫？", {
-            fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-        }).setOrigin(0.5).setDepth(1000);
-
-        scene.time.delayedCall(2000, () => {
-            heroDialog1.destroy();
-            
-            const enemyDialog1 = scene.add.text(smallEnemy.x, smallEnemy.y - 100, "うん、いろいろ迷惑かけてごめんなさい", {
-                fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-            }).setOrigin(0.5).setDepth(1000);
-
-            scene.time.delayedCall(3000, () => {
-                enemyDialog1.destroy();
-                
-                scene.tweens.add({
-                    targets: hero,
-                    x: smallEnemy.x - 80,
-                    y: smallEnemy.y,
-                    duration: 1500,
-                    ease: 'Power2',
-                    onComplete: () => {
-                        scene.time.delayedCall(1000, () => {
-                            scene.tweens.add({
-                                targets: hero,
-                                x: smallEnemy.x - 25, 
-                                duration: 1000,
-                                ease: 'Power2',
-                                onComplete: () => {
-                                    const heroDialog2 = scene.add.text(hero.x, hero.y - 80, "よかった。。。ほんとうに", {
-                                        fontSize: '30px', fill: '#00ffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-                                    }).setOrigin(0.5).setDepth(1000);
-
-                                    scene.time.delayedCall(2500, () => {
-                                        heroDialog2.destroy();
-                                        
-                                        const enemyDialog2 = scene.add.text(smallEnemy.x, smallEnemy.y - 100, "...///", {
-                                            fontSize: '30px', fill: '#ffffff', fontStyle: 'bold', stroke: '#000', strokeThickness: 5
-                                        }).setOrigin(0.5).setDepth(1000);
-
-                                        scene.time.delayedCall(2000, () => {
-                                            enemyDialog2.destroy();
-                                            triggerBirthdayEnding(scene);
-                                        });
-                                    });
-                                }
-                            });
-                        });
-                    }
-                });
-            });
-        });
-    }
-
-    function triggerBirthdayEnding(scene) {
-        const whiteOut = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(1500);
-        whiteOut.setAlpha(0);
-        
-        scene.tweens.add({
-            targets: whiteOut, alpha: 1, duration: 3500, 
-            onComplete: () => {
-                whiteOut.setFillStyle(0x000000);
-                scene.sound.stopAll();
-                try { scene.sound.play('birthday', { volume: 1.0 }); } catch(e){}
-                
-                const bdayImg = scene.add.sprite(360, -640, 'birthday_img').setOrigin(0.5).setDepth(1501);
-                bdayImg.on('textureerrored', function() { bdayImg.destroy(); }); 
-                
-                scene.tweens.add({
-                    targets: bdayImg,
-                    y: bdayImg.y - 40,
-                    scaleY: 0.95,
-                    scaleX: 1.05,
-                    duration: 350, 
-                    yoyo: true,
-                    repeat: -1,
-                    ease: 'Quad.easeOut' 
-                });
-                
-                scene.time.delayedCall(500, () => {
-                    const txt1 = scene.add.text(360, -950, 'Happy', { 
-                        fontSize: '70px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
-                    }).setOrigin(0.5).setDepth(1502);
-
-                    const txt2 = scene.add.text(360, -330, 'Birthday!!', { 
-                        fontSize: '70px', fill: '#ff00ff', fontStyle: 'bold', stroke: '#fff', strokeThickness: 8 
-                    }).setOrigin(0.5).setDepth(1502);
-                    
-                    scene.tweens.add({
-                        targets: [txt1, txt2], y: '-=20', duration: 350, yoyo: true, repeat: -1, ease: 'Quad.easeOut'
-                    });
-                    
-                    scene.time.delayedCall(14000, () => {
-                        try { scene.sound.play('mass_explode', { volume: 5.0 }); } catch(e){}
-                        scene.cameras.main.shake(3000, 0.1); 
-
-                        const blastFlash = scene.add.rectangle(360, -640, 2000, 3000, 0xffffff).setDepth(2000);
-                        blastFlash.setAlpha(0);
-                        scene.tweens.add({
-                            targets: blastFlash,
-                            alpha: 1,
-                            duration: 500,
-                            onComplete: () => {
-                                scene.time.delayedCall(1000, () => {
-                                    scene.sound.stopAll(); 
-                                    scene.scene.start('TitleScene'); 
-                                });
-                            }
-                        });
-                    });
-                });
-            }
-        });
     }
 
     function fireCatStampede(scene, x, y, onComplete) {
